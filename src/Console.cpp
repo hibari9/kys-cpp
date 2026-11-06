@@ -1,7 +1,8 @@
-#include "Console.h"
+﻿#include "Console.h"
 #include "BattleNetwork.h"
 #include "BattleScene.h"
 #include "DrawableOnCall.h"
+#include "Event.h"
 #include "Font.h"
 #include "InputBox.h"
 #include "MainScene.h"
@@ -9,8 +10,7 @@
 #include "Save.h"
 #include "SuperMenuText.h"
 #include "TextureManager.h"
-#include "convert.h"
-
+#include "strfunc.h"
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -32,11 +32,17 @@ Console::Console()
         {
             code = input->getText();
         }
+        else
+        {
+            return;
+        }
     }
     // 捂脸
-    code = PotConv::conv(code, "cp936", "utf-8");
-    auto splits = convert::splitString(code, " ");
-    //if (splits.empty()) return;
+    auto splits = strfunc::splitString(code, " ");
+    if (splits.empty())
+    {
+        splits.push_back("");
+    }
     if (code == "menutest")
     {
         std::vector<std::pair<int, std::string>> generated;
@@ -44,13 +50,14 @@ Console::Console()
         {
             generated.emplace_back(i, "a" + std::to_string(i));
         }
-        auto smt = std::make_shared<SuperMenuText>("少废话", 28, generated, 10);
+        auto smt = std::make_shared<SuperMenuText>("少廢話", 28, generated, 10);
         smt->setInputPosition(180, 80);
         smt->run();
         int id = smt->getResult();
-        fmt::print("result %d\n", id);
+        LOG("result {}\n", id);
     }
-    else if (code == "chuansong" || code == "teleport" || code == "mache" || code == "")
+    else if (RunNode::getPointerFromRoot<SubScene>() == nullptr
+        && (code == "chuansong" || code == "teleport" || code == "mache" || code == ""))
     {
         std::vector<std::pair<int, std::string>> locs;
         for (const auto& info : Save::getInstance()->getSubMapInfos())
@@ -60,7 +67,7 @@ Console::Console()
             {
                 std::string name(info->Name);
                 // 有空格方便完成双击确认
-                locs.emplace_back(info->ID, name);
+                locs.emplace_back(info->ID, name + std::to_string(info->ID));
             }
         }
         int dx = 180;
@@ -76,11 +83,11 @@ Console::Console()
             int nx = dx + 350;
             int ny = dy + 100;
             int fontSize = 28;
-            TextureManager::getInstance()->renderTexture("title", 126, { nx, ny, 400, 400 }, { 192, 192, 192, 255 }, 255);
+            TextureManager::getInstance()->renderTexture("title", 126, nx, ny, { { 192, 192, 192, 255 }, 255 }, 400, 400);
             //Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, nx, ny, 400, 400);
-            Font::getInstance()->draw(fmt::format("%s，%d", scene->Name, scene->ID), fontSize, nx + 20, ny + 20);
-            Font::getInstance()->draw(fmt::format("（%d，%d）", scene->MainEntranceX1, scene->MainEntranceY1),
-                fontSize, nx + 20, ny + 20 + fontSize * 1.5);
+            Font::getInstance()->draw(std::format("{}，{}", scene->Name, scene->ID), fontSize, nx + 20, ny + 20, { 0, 0, 0, 255 });
+            Font::getInstance()->draw(std::format("（{}，{}）", scene->MainEntranceX1, scene->MainEntranceY1),
+                fontSize, nx + 20, ny + 20 + fontSize * 1.5, { 0, 0, 0, 255 });
 
             int man_x_ = scene->MainEntranceX1;
             int man_y_ = scene->MainEntranceY1;
@@ -95,7 +102,7 @@ Console::Console()
             struct DrawInfo
             {
                 int index;
-                Texture* t;
+                TextureWarpper* t;
                 Point p;
             };
 
@@ -155,16 +162,18 @@ Console::Console()
             auto scene = Save::getInstance()->getSubMapInfos()[id];
             MainScene::getInstance()->forceEnterSubScene(id, scene->EntranceX, scene->EntranceY);
             MainScene::getInstance()->setManPosition(scene->MainEntranceX1, scene->MainEntranceY1);
-            fmt::print("傳送到{}\n", id);
+            LOG("傳送到{}\n", id);
         }
     }
+    /*
     else if (splits[0] == "newsave" && splits.size() >= 2)
     {
         int rec;
         try
         {
             rec = std::stoi(splits[1]);
-        } catch (...)
+        }
+        catch (...)
         {
             return;
         }
@@ -181,7 +190,8 @@ Console::Console()
         try
         {
             rec = std::stoi(splits[1]);
-        } catch (...)
+        }
+        catch (...)
         {
             return;
         }
@@ -201,13 +211,14 @@ Console::Console()
         try
         {
             idx = std::stoi(splits[2]);
-        } catch (...)
+        }
+        catch (...)
         {
             return;
         }
         Save::getInstance()->insertAt(splits[1], idx);
-    }
-    else if (splits[0] == "host" && splits.size() > 1)
+    }*/
+    else if (splits.size() > 1 && splits[0] == "host")
     {
         Save::getInstance()->save(11);
 
@@ -223,7 +234,7 @@ Console::Console()
 
         Save::getInstance()->load(11);
     }
-    else if (splits[0] == "client" && splits.size() > 1)
+    else if (splits.size() > 1 && splits[0] == "client")
     {
         Save::getInstance()->save(11);
 
@@ -238,5 +249,12 @@ Console::Console()
         battle->run();
 
         Save::getInstance()->load(11);
+    }
+    else if (splits.size() > 1 && (splits[0] == "battle" || splits[0] == "b"))
+    {
+        //Save::getInstance()->save(11);
+        int k = atoi(splits[1].c_str());
+        Event::getInstance()->tryBattle(k, 0);
+        //Save::getInstance()->load(11);
     }
 }

@@ -1,4 +1,5 @@
-#pragma once
+﻿#pragma once
+#include "Cloud.h"
 #include "Scene.h"
 #include "Save.h"
 
@@ -24,6 +25,8 @@ public:
 
     int force_begin_event_ = -1;
 
+    std::shared_ptr<CloudGroup> cloud_group_;
+
 public:
     SubMapInfo* getMapInfo() { return submap_info_; }
 
@@ -32,11 +35,11 @@ public:
     void setID(int id);
 
     //注意视角和主角的位置可能不一样
-    void setViewPosition(int x, int y) { view_x_ = x; view_y_ = y; }
-    void setManViewPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); }
+    void setViewPosition(int x, int y) { if (isWalking()) { stopWalking(); } cancelWalking(); view_x_ = x; view_y_ = y; }
+    void setManViewPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); arrival_pending_ = true; }
 
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;
+    virtual void dealEvent(EngineEvent& e) override;
     virtual void backRun() override;
     virtual void onEntrance() override;
     virtual void onExit() override;
@@ -74,5 +77,15 @@ public:
     void setForceBeginEvent(int e) { force_begin_event_ = e; }
 
     void fillEarth();
+
+    void reDrawEarthTexture();
+    void walkScriptStep(int x, int y);
+
+protected:
+    bool usesSmoothWalking() const override { return true; }
+    void commitWalkingView() override { view_x_ = man_x_; view_y_ = man_y_; arrival_pending_ = true; }
+    bool arrival_pending_ = true;
+    bool checkArrival();
+    void stopWalking();
 };
 

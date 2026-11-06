@@ -1,10 +1,11 @@
-#include "TeamMenu.h"
+﻿#include "TeamMenu.h"
 #include "Button.h"
-#include "GameUtil.h"
 #include "Save.h"
 
 TeamMenu::TeamMenu()
 {
+    int w, h;
+    Engine::getInstance()->getUISize(w, h);
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto h = std::make_shared<Head>();
@@ -16,11 +17,13 @@ TeamMenu::TeamMenu()
     }
     button_all_ = std::make_shared<Button>();
     button_all_->setText("全選");
+    button_all_->setFontSize(30);
     button_ok_ = std::make_shared<Button>();
     button_ok_->setText("確定");
-    addChild(button_all_, 0, 300);
-    addChild(button_ok_, 100, 300);
-    setPosition(200, 150);
+    button_ok_->setFontSize(30);
+    addChild(button_all_, 200, 300);
+    addChild(button_ok_, 300, 300);
+    setPosition(w / 2 - 250, 150);
     setTextPosition(20, -30);
 }
 
@@ -30,33 +33,48 @@ TeamMenu::~TeamMenu()
 
 void TeamMenu::onEntrance()
 {
+    int visible_index = 0;
+    bool has_usable_role = false;
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto r = Save::getInstance()->getTeamMate(i);
+        auto head = heads_[i];
+        bool visible = r != nullptr;
         if (r)
         {
-            heads_[i]->setRole(r);
+            head->setRole(r);
             if (mode_ == 0 && item_)
             {
-                if (!GameUtil::canUseItem(r, item_))
+                has_usable_role = has_usable_role || r->canUseItem(item_);
+                if (!r->canUseItem(item_))
                 {
-                    heads_[i]->setText("不適合");
+                    head->setText("不適合");
                 }
                 if (r->PracticeItem == item_->ID || r->Equip0 == item_->ID || r->Equip1 == item_->ID)
                 {
-                    heads_[i]->setText("使用中");
+                    head->setText("使用中");
+                }
+                if ((item_->ItemType == 1 || item_->ItemType == 2) && !r->canUseItem(item_))
+                {
+                    visible = false;
                 }
             }
+        }
+        head->setVisible(visible);
+        if (visible)
+        {
+            head->setPosition(x_ + visible_index % 2 * 250, y_ + visible_index / 2 * 100);
+            visible_index++;
         }
     }
     if (mode_ == 0)
     {
         button_all_->setVisible(false);
         button_ok_->setVisible(false);
-    }
-    for (auto h : heads_)
-    {
-        h->setVisible(h->getRole());
+        if (item_ && !has_usable_role)
+        {
+            setText("隊中無人可用");
+        }
     }
 }
 
@@ -91,12 +109,12 @@ void TeamMenu::onPressedOK()
         role_ = nullptr;
         for (auto h : heads_)
         {
-            if (h->getState() == Press)
+            if (h->getState() == NodePress)
             {
                 role_ = h->getRole();
             }
         }
-        if (role_)
+        if (role_ && (item_ == nullptr || role_->canUseItem(item_)))
         {
             result_ = 0;
             setExit(true);
@@ -106,7 +124,7 @@ void TeamMenu::onPressedOK()
     {
         for (auto h : heads_)
         {
-            if (h->getState() == Press)
+            if (h->getState() == NodePress)
             {
                 if (h->getResult() == -1)
                 {
@@ -118,7 +136,7 @@ void TeamMenu::onPressedOK()
                 }
             }
         }
-        if (button_all_->getState() == Press)
+        if (button_all_->getState() == NodePress)
         {
             //如果已经全选，则是清除
             int all = -1;
@@ -135,7 +153,7 @@ void TeamMenu::onPressedOK()
                 h->setResult(all);
             }
         }
-        if (button_ok_->getState() == Press)
+        if (button_ok_->getState() == NodePress)
         {
             //没有人被选中，不能确定
             for (auto h : heads_)
@@ -159,7 +177,7 @@ void TeamMenu::onPressedCancel()
     }
 }
 
-void TeamMenu::dealEvent(BP_Event& e)
+void TeamMenu::dealEvent(EngineEvent& e)
 {
     Menu::dealEvent(e);
     if (mode_ == 0)
@@ -168,10 +186,10 @@ void TeamMenu::dealEvent(BP_Event& e)
         {
             for (auto h : heads_)
             {
-                if (h->getState() != Normal && !GameUtil::canUseItem(h->getRole(), item_))
-                {
-                    h->setState(Normal);
-                }
+                //if (h->getState() != NodeNormal && !GameUtil::canUseItem(h->getRole(), item_))
+                //{
+                //    h->setState(NodeNormal);
+                //}
             }
         }
     }
@@ -182,12 +200,37 @@ void TeamMenu::dealEvent(BP_Event& e)
             if (h->getResult() == 0)
             {
                 h->setText("已選中");
+                h->setAlwaysLight(1);
             }
             else
             {
                 h->setText("");
+                h->setAlwaysLight(0);
             }
         }
-        getChild(active_child_)->setState(Press);
+        //getChild(active_child_)->setState(NodePress);
+    }
+    if (force_main_ && !heads_.empty())
+    {
+        heads_[0]->setResult(0);
+    }
+    if (e.type == EVENT_KEY_UP)
+    {
+        if (e.key.key == K_A)
+        {
+            for (auto h : heads_)
+            {
+                h->setState(NodeNormal);
+            }
+            button_all_->setState(NodePress);
+            button_ok_->setState(NodeNormal);
+            e.key.key = K_RETURN;
+        }
+        if (e.key.key == K_O)
+        {
+            button_all_->setState(NodeNormal);
+            button_ok_->setState(NodePress);
+            e.key.key = K_RETURN;
+        }
     }
 }

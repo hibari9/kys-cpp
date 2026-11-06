@@ -1,32 +1,149 @@
-#include "BattleNetwork.h"
+﻿#include "BattleNetwork.h"
 
 #ifdef WITH_NETWORK
 #include "DrawableOnCall.h"
-#include "File.h"
+#include "filefunc.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "Save.h"
 #include "TeamMenu.h"
 #include "picosha2.h"
 
+#include <algorithm>
+#include <cstring>
 #include <random>
 
 #define CALLBACK_ON_ERROR(err) if (err) { final_callback_(err); return; }
 
+namespace
+{
+BattleNetwork::SerializableRole serializeRole(const RoleSave& role)
+{
+    BattleNetwork::SerializableRole result{};
+    result.ID = role.ID;
+    result.HeadID = role.HeadID;
+    result.IncLife = role.IncLife;
+    result.UnUse = role.UnUse;
+    std::copy_n(role.Name.data(), std::min(role.Name.size(), result.Name.size() - 1), result.Name.begin());
+    std::copy_n(role.Nick.data(), std::min(role.Nick.size(), result.Nick.size() - 1), result.Nick.begin());
+    result.Sexual = role.Sexual;
+    result.Level = role.Level;
+    result.Exp = role.Exp;
+    result.HP = role.HP;
+    result.MaxHP = role.MaxHP;
+    result.Hurt = role.Hurt;
+    result.Poison = role.Poison;
+    result.PhysicalPower = role.PhysicalPower;
+    result.ExpForMakeItem = role.ExpForMakeItem;
+    result.Equip0 = role.Equip0;
+    result.Equip1 = role.Equip1;
+    std::copy(std::begin(role.EquipMagic), std::end(role.EquipMagic), std::begin(result.EquipMagic));
+    std::copy(std::begin(role.EquipMagic2), std::end(role.EquipMagic2), std::begin(result.EquipMagic2));
+    result.EquipItem = role.EquipItem;
+    std::copy(std::begin(role.Frame), std::end(role.Frame), std::begin(result.Frame));
+    result.MPType = role.MPType;
+    result.MP = role.MP;
+    result.MaxMP = role.MaxMP;
+    result.Attack = role.Attack;
+    result.Speed = role.Speed;
+    result.Defence = role.Defence;
+    result.Medicine = role.Medicine;
+    result.UsePoison = role.UsePoison;
+    result.Detoxification = role.Detoxification;
+    result.AntiPoison = role.AntiPoison;
+    result.Fist = role.Fist;
+    result.Sword = role.Sword;
+    result.Knife = role.Knife;
+    result.Unusual = role.Unusual;
+    result.HiddenWeapon = role.HiddenWeapon;
+    result.Knowledge = role.Knowledge;
+    result.Morality = role.Morality;
+    result.AttackWithPoison = role.AttackWithPoison;
+    result.AttackTwice = role.AttackTwice;
+    result.Fame = role.Fame;
+    result.IQ = role.IQ;
+    result.PracticeItem = role.PracticeItem;
+    result.ExpForItem = role.ExpForItem;
+    std::copy(std::begin(role.MagicID), std::end(role.MagicID), std::begin(result.MagicID));
+    std::copy(std::begin(role.MagicLevel), std::end(role.MagicLevel), std::begin(result.MagicLevel));
+    std::copy(std::begin(role.TakingItem), std::end(role.TakingItem), std::begin(result.TakingItem));
+    std::copy(std::begin(role.TakingItemCount), std::end(role.TakingItemCount), std::begin(result.TakingItemCount));
+    std::copy(std::begin(role.InternalID), std::end(role.InternalID), std::begin(result.InternalID));
+    std::copy(std::begin(role.InternalLevel), std::end(role.InternalLevel), std::begin(result.InternalLevel));
+    return result;
+}
+
+RoleSave deserializeRole(const BattleNetwork::SerializableRole& role)
+{
+    RoleSave result{};
+    result.ID = role.ID;
+    result.HeadID = role.HeadID;
+    result.IncLife = role.IncLife;
+    result.UnUse = role.UnUse;
+    result.Name = role.Name.data();
+    result.Nick = role.Nick.data();
+    result.Sexual = role.Sexual;
+    result.Level = role.Level;
+    result.Exp = role.Exp;
+    result.HP = role.HP;
+    result.MaxHP = role.MaxHP;
+    result.Hurt = role.Hurt;
+    result.Poison = role.Poison;
+    result.PhysicalPower = role.PhysicalPower;
+    result.ExpForMakeItem = role.ExpForMakeItem;
+    result.Equip0 = role.Equip0;
+    result.Equip1 = role.Equip1;
+    std::copy(std::begin(role.EquipMagic), std::end(role.EquipMagic), std::begin(result.EquipMagic));
+    std::copy(std::begin(role.EquipMagic2), std::end(role.EquipMagic2), std::begin(result.EquipMagic2));
+    result.EquipItem = role.EquipItem;
+    std::copy(std::begin(role.Frame), std::end(role.Frame), std::begin(result.Frame));
+    result.MPType = role.MPType;
+    result.MP = role.MP;
+    result.MaxMP = role.MaxMP;
+    result.Attack = role.Attack;
+    result.Speed = role.Speed;
+    result.Defence = role.Defence;
+    result.Medicine = role.Medicine;
+    result.UsePoison = role.UsePoison;
+    result.Detoxification = role.Detoxification;
+    result.AntiPoison = role.AntiPoison;
+    result.Fist = role.Fist;
+    result.Sword = role.Sword;
+    result.Knife = role.Knife;
+    result.Unusual = role.Unusual;
+    result.HiddenWeapon = role.HiddenWeapon;
+    result.Knowledge = role.Knowledge;
+    result.Morality = role.Morality;
+    result.AttackWithPoison = role.AttackWithPoison;
+    result.AttackTwice = role.AttackTwice;
+    result.Fame = role.Fame;
+    result.IQ = role.IQ;
+    result.PracticeItem = role.PracticeItem;
+    result.ExpForItem = role.ExpForItem;
+    std::copy(std::begin(role.MagicID), std::end(role.MagicID), std::begin(result.MagicID));
+    std::copy(std::begin(role.MagicLevel), std::end(role.MagicLevel), std::begin(result.MagicLevel));
+    std::copy(std::begin(role.TakingItem), std::end(role.TakingItem), std::begin(result.TakingItem));
+    std::copy(std::begin(role.TakingItemCount), std::end(role.TakingItemCount), std::begin(result.TakingItemCount));
+    std::copy(std::begin(role.InternalID), std::end(role.InternalID), std::begin(result.InternalID));
+    std::copy(std::begin(role.InternalLevel), std::end(role.InternalLevel), std::begin(result.InternalLevel));
+    return result;
+}
+}
+
 bool BattleNetwork::sendMyAction(const BattleNetwork::SerializableBattleAction& action)
 {
     // 错误不管
-    fmt::print("sendMyAction\n");
+    LOG("sendMyAction\n");
     asio::async_write(socket_, asio::buffer(&action, sizeof(action)), [](std::error_code err, std::size_t bytes)
     {
-        fmt::print("send {}\n", err.message());
+        LOG("send {}\n", err.message());
     });
     return true;
 }
 
 bool BattleNetwork::getOpponentAction(BattleNetwork::SerializableBattleAction& action, std::function<void(std::error_code err, std::size_t bytes)> f)
 {
-    fmt::print("getOpponentAction\n");
+    LOG("getOpponentAction\n");
     asio::async_read(socket_, asio::buffer(&action, sizeof(action)), f);
     return true;
 }
@@ -51,7 +168,7 @@ void BattleNetwork::nameSetup()
             }
             // 下一步， host等待GO，client发送GO
             int_buf_ = 1;
-            fmt::print("waiting loop\n");
+            LOG("waiting loop\n");
             waitConnection();
         });
     });
@@ -70,7 +187,12 @@ void BattleNetwork::addValidation(std::array<unsigned char, 32>&& bytes)
 void BattleNetwork::handshake(std::vector<RoleSave>&& my_roles, std::function<void(std::error_code err)> f)
 {
     final_callback_ = f;
-    friends_ = std::move(my_roles);
+    friends_.clear();
+    friends_.reserve(my_roles.size());
+    for (const auto& role : my_roles)
+    {
+        friends_.push_back(serializeRole(role));
+    }
     resolver_.async_resolve(query_, [this](std::error_code err, asio::ip::tcp::resolver::iterator iter)
     {
         CALLBACK_ON_ERROR(err);
@@ -86,7 +208,12 @@ void BattleNetwork::getResults(unsigned int& seed, int& friends, std::vector<Rol
 {
     seed = seed_;
     friends = friends_.size();
-    final_roles = std::move(role_result_);
+    final_roles.clear();
+    final_roles.reserve(role_result_.size());
+    for (const auto& role : role_result_)
+    {
+        final_roles.push_back(deserializeRole(role));
+    }
 }
 
 void BattleNetwork::validate()
@@ -146,7 +273,7 @@ void BattleHost::waitConnection()
     asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
     {
         CALLBACK_ON_ERROR(err);
-        fmt::print("got {}\n", int_buf_);
+        LOG("got {}\n", int_buf_);
         if (int_buf_ == BattleClient::GO)
         {
             getRandSeed();
@@ -160,7 +287,7 @@ void BattleHost::waitConnection()
 
 void BattleHost::getRandSeed()
 {
-    fmt::print("exchange protocol started\n");
+    LOG("exchange protocol started\n");
     std::random_device device;
     seed_ = device();
     asio::async_write(socket_, asio::buffer(&seed_, sizeof(seed_)), [this](const std::error_code& err, std::size_t bytes)
@@ -173,7 +300,7 @@ void BattleHost::getRandSeed()
 void BattleHost::rDataHandshake()
 {
     // 先传输人数
-    fmt::print("rDataHandshake\n");
+    LOG("rDataHandshake\n");
     int_buf_ = friends_.size();
     asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
     {
@@ -181,7 +308,7 @@ void BattleHost::rDataHandshake()
         const_bufs_.clear();
         for (int i = 0; i < int_buf_; i++)
         {
-            const_bufs_.push_back(asio::buffer(&friends_[i], sizeof(RoleSave)));
+            const_bufs_.push_back(asio::buffer(&friends_[i], sizeof(SerializableRole)));
             role_result_.push_back(friends_[i]);
         }
         asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes)
@@ -196,7 +323,7 @@ void BattleHost::rDataHandshake()
                 for (int i = 0; i < int_buf_; i++)
                 {
                     role_result_.emplace_back();
-                    mut_bufs_.push_back(asio::buffer(&role_result_.back(), sizeof(RoleSave)));
+                    mut_bufs_.push_back(asio::buffer(&role_result_.back(), sizeof(SerializableRole)));
                 }
                 asio::async_read(socket_, mut_bufs_, [this](const std::error_code& err, std::size_t bytes)
                 {
@@ -226,7 +353,7 @@ void BattleClient::waitConnection()
 
 void BattleClient::getRandSeed()
 {
-    fmt::print("exchange protocol started\n");
+    LOG("exchange protocol started\n");
     asio::async_read(socket_, asio::buffer(&seed_, sizeof(seed_)), [this](const std::error_code& err, std::size_t bytes)
     {
         CALLBACK_ON_ERROR(err);
@@ -236,7 +363,7 @@ void BattleClient::getRandSeed()
 
 void BattleClient::rDataHandshake()
 {
-    fmt::print("rDataHandshake\n");
+    LOG("rDataHandshake\n");
     // 读取人数
     asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
     {
@@ -247,7 +374,7 @@ void BattleClient::rDataHandshake()
         for (int i = 0; i < int_buf_; i++)
         {
             role_result_.emplace_back();
-            mut_bufs_.push_back(asio::buffer(&role_result_.back(), sizeof(RoleSave)));
+            mut_bufs_.push_back(asio::buffer(&role_result_.back(), sizeof(SerializableRole)));
         }
         asio::async_read(socket_, mut_bufs_, [this](const std::error_code& err, std::size_t bytes)
         {
@@ -260,7 +387,7 @@ void BattleClient::rDataHandshake()
                 const_bufs_.clear();
                 for (int i = 0; i < int_buf_; i++)
                 {
-                    const_bufs_.push_back(asio::buffer(&friends_[i], sizeof(RoleSave)));
+                    const_bufs_.push_back(asio::buffer(&friends_[i], sizeof(SerializableRole)));
                     role_result_.push_back(friends_[i]);
                 }
                 asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes)
@@ -306,9 +433,7 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
     std::vector<RoleSave> serializableRoles;
     for (auto r : friends)
     {
-        RoleSave me;
-        std::memcpy(&me, r, sizeof(me));
-        serializableRoles.push_back(me);
+        serializableRoles.push_back(static_cast<const RoleSave&>(*r));
     }
 
     static_assert(BattleNetwork::VALSIZE == picosha2::k_digest_size, "validation size mismatch");
@@ -317,7 +442,7 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
     std::string verStr(GameUtil::VERSION());
     if (verStr.size() > BattleNetwork::VALSIZE)
     {
-        return nullptr;
+        return false;
     }
     std::memcpy(&version[0], &verStr[0], verStr.size());
     net->addValidation(std::move(version));
@@ -343,7 +468,7 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
     auto waitThis = std::make_shared<DrawableOnCall>(f);
     auto exit = [&waitThis, &ok](std::error_code err)
     {
-        fmt::print("recv {}\n", err.message());
+        LOG("recv {}\n", err.message());
         ok = !err;
         waitThis->setExit(true);
     };

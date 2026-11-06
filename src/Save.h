@@ -1,13 +1,12 @@
-#pragma once
-#include "sqlite3.h"
+﻿#pragma once
+#include "SQLite3Wrapper.h"
+#include "Types.h"
 #include <map>
 #include <vector>
 
-#include "Types.h"
-
 struct ItemList
 {
-    int item_id, count;
+    int ItemID = -1, Count = 0;
 };
 
 class Save
@@ -30,11 +29,7 @@ public:
     ~Save();
 
     bool load(int num);
-    void loadR(int num);
-    void loadSD(int num);
     bool save(int num);
-    void saveR(int num);
-    void saveSD(int num);
 
     // 帮助网络交流
     void resetRData(const std::vector<RoleSave>& newData);
@@ -45,8 +40,8 @@ public:
         return &s;
     }
 
-    static std::string getFilename(int i, char c);
-    static bool checkSaveFileExist(int num);
+    std::string getFilename(int i, char c);
+    bool checkSaveFileExist(int num);
 
 private:
     //注意在读取之后，offset比length尾部会多一个元素，该值即总长度
@@ -141,11 +136,12 @@ public:
     Item* getItemByBagIndex(int i);
     int getItemCountByBagIndex(int i);
     int getItemCountInBag(Item* item);
+    std::vector<std::tuple<Item*, int>> getAvailableEquipItems();
 
     int getItemCountInBag(int item_id);
     int getMoneyCountInBag();
 
-    void makeMaps();
+    void makeMapsAndRepairID();
 
     Role* getRoleByName(std::string name) { return roles_by_name_[name]; }
     Magic* getMagicByName(std::string name) { return magics_by_name_[name]; }
@@ -194,6 +190,10 @@ public:
 
     void loadSaveValues() {}
 
+    int DB_SD = 0;    //使用数据库保存SD数据，0-不使用，1-使用，这个功能看起来不是很有必要
+
+    int ZIP_SAVE = 0;    //使用压缩保存数据，0-不使用，1-使用
+
 public:
     struct BaseInfo
     {
@@ -202,11 +202,13 @@ public:
     };
 
 public:
-    void saveRToCSV(int num);
-    void loadRFromCSV(int num);
-    bool insertAt(const std::string& type, int idx);
+    void saveRToDB(SQLite3Wrapper& db);
+    void loadRFromDB(SQLite3Wrapper& db);
 
-public:
-    void saveRToDB(int num);
-    void loadRFromDB(int num);
+    void runSql(const std::string& cmd);
+
+    void setZipSave(int v)
+    {
+        ZIP_SAVE = v;
+    }
 };

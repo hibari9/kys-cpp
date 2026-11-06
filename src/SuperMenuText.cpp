@@ -1,13 +1,13 @@
-#include "SuperMenuText.h"
+﻿#include "SuperMenuText.h"
 #include "../others/Hanz2Piny.h"
-#include "OpenCCConverter.h"
+#include "Font.h"
 #include "PotConv.h"
-#include "convert.h"
 #include <algorithm>
 #include <cmath>
 #include <utility>
 
-SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) : InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
+SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) :
+    InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
 {
     previous_ = std::make_shared<Button>();
     previous_->setText("上一頁PgUp");
@@ -18,17 +18,17 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
     addChild(next_);
     selections_ = std::make_shared<MenuText>();
     addChild(selections_);
-    setAllChildState(Normal);
+    setAllChildState(NodeNormal);
     defaultPage();
 
     std::function<bool(const std::string&, const std::string&)> match = [&](const std::string& text, const std::string& name) -> bool
     {
-        std::string pinyin = Hanz2Piny::hanz2pinyin(PotConv::cp936toutf8(name));
-        int p = 0;
-        for (int i = 0; i < text.size(); i++)
+        std::string pinyin = Hanz2Piny::hanz2pinyin(name);
+        std::string::size_type p = 0;
+        for (std::string::size_type i = 0; i < text.size(); i++)
         {
-            int p1 = pinyin.find_first_of(text[i], p);
-            if (p1 < 0)
+            const auto p1 = pinyin.find_first_of(text[i], p);
+            if (p1 == std::string::npos)
             {
                 return false;
             }
@@ -42,7 +42,7 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
         //// 拼音
         //auto u8Name = PotConv::cp936toutf8(pairName.second);
         //std::string pinyin = Hanz2Piny::hanz2pinyin(u8Name);
-        //auto pys = convert::splitString(pinyin, " ");
+        //auto pys = strfunc::splitString(pinyin, " ");
         //std::vector<std::string> acceptables;
 
         //std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx)
@@ -102,7 +102,9 @@ void SuperMenuText::setMatchFunction(std::function<bool(const std::string&, cons
 void SuperMenuText::defaultPage()
 {
     if (curDefault_)
-    { return; }
+    {
+        return;
+    }
     std::vector<std::string> displays;
     searchResultIndices_.clear();
     for (int i = 0; i < items_.size(); i++)
@@ -118,7 +120,9 @@ void SuperMenuText::defaultPage()
     updateMaxPages();
     selections_->setStrings(displays);
     if (displays.size() != 0)
-    { selections_->forceActiveChild(0); }
+    {
+        selections_->forceActiveChild(0);
+    }
     curDefault_ = true;
 }
 
@@ -148,7 +152,9 @@ bool SuperMenuText::defaultMatch(const std::string& input, const std::string& na
     {
         auto iterName = iterInput->second.find(name);
         if (iterName != iterInput->second.end())
-        { return true; }
+        {
+            return true;
+        }
     }
     return false;
 }
@@ -194,20 +200,20 @@ void SuperMenuText::updateMaxPages()
     maxPages_ = std::ceil((searchResultIndices_.size() / (double)itemsPerPage_));
 }
 
-void SuperMenuText::dealEvent(BP_Event& e)
+void SuperMenuText::dealEvent(EngineEvent& e)
 {
     // get不到result 为何
     // 不知道这玩意儿在干嘛，瞎搞即可
-    if (previous_->getState() == Press && e.type == BP_MOUSEBUTTONUP)
+    if (previous_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
     {
         flipPage(-1);
-        previous_->setState(Normal);
+        previous_->setState(NodeNormal);
         previous_->setResult(-1);
     }
-    else if (next_->getState() == Press && e.type == BP_MOUSEBUTTONUP)
+    else if (next_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
     {
         flipPage(1);
-        next_->setState(Normal);
+        next_->setState(NodeNormal);
         next_->setResult(-1);
     }
 
@@ -215,27 +221,28 @@ void SuperMenuText::dealEvent(BP_Event& e)
     // 为什么switch自动缩进是这样
     switch (e.type)
     {
-    case BP_TEXTINPUT:
+    case EVENT_TEXT_INPUT:
     {
-        auto converted = OpenCCConverter::getInstance()->convertUTF8(e.text.text);
-        converted = PotConv::conv(converted, "utf-8", "cp936");
+        auto converted = Font::getInstance()->T2S(e.text.text);
+        //converted = PotConv::conv(converted, "utf-8", "cp936");
         text_ += converted;
         research = true;
         break;
     }
-    case BP_TEXTEDITING:
+    case EVENT_TEXT_EDITING:
     {
         break;
     }
-    case BP_KEYDOWN:
+    case EVENT_KEY_DOWN:
     {
-        if (e.key.keysym.sym == BPK_BACKSPACE)
+        if (e.key.key == K_BACKSPACE)
         {
             if (text_.size() >= 1)
             {
                 text_.pop_back();
-                if (text_.size() >= 1 && uint8_t(text_.back()) >= 128)
+                if (text_.size() >= 2 && uint8_t(text_.back()) >= 128)
                 {
+                    text_.pop_back();
                     text_.pop_back();
                 }
             }
@@ -243,16 +250,16 @@ void SuperMenuText::dealEvent(BP_Event& e)
         }
         break;
     }
-    case BP_KEYUP:
+    case EVENT_KEY_UP:
     {
-        switch (e.key.keysym.sym)
+        switch (e.key.key)
         {
-        case BPK_PAGEUP:
+        case K_PAGEUP:
         {
             flipPage(-1);
             break;
         }
-        case BPK_PAGEDOWN:
+        case K_PAGEDOWN:
         {
             flipPage(1);
             break;
@@ -260,7 +267,7 @@ void SuperMenuText::dealEvent(BP_Event& e)
         }
         break;
     }
-    case BP_MOUSEWHEEL:
+    case EVENT_MOUSE_WHEEL:
     {
         if (e.wheel.y > 0)
         {
@@ -306,7 +313,9 @@ void SuperMenuText::dealEvent(BP_Event& e)
         auto selected = selections_->getResultString();
         result_ = activeIndices_[selections_->getResult()];
         if (result_ >= 0)
-        { result_ = items_[result_].first; }
+        {
+            result_ = items_[result_].first;
+        }
         setExit(true);
     }
 }

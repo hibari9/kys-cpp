@@ -1,8 +1,9 @@
-#pragma once
+﻿#pragma once
+#include "DrawNode.h"
 #include "FunctionTrait.h"
+#include "GameUtil.h"
 #include "Menu.h"
 #include "Random.h"
-#include "RunNode.h"
 #include "SubScene.h"
 #include "Talk.h"
 
@@ -25,6 +26,8 @@ private:
     std::vector<int> offset, length;
     std::vector<std::string> talk_contents_;
     std::vector<std::vector<int>> kdef_;
+
+    std::unordered_map<std::string, int> talk_to_num_;
 
     int leave_event_0_;
     std::vector<int> leave_event_id_;
@@ -56,23 +59,28 @@ private:
     Item* item_;
     //Save* save_;
     bool exit_ = false;
-    int use_script_ = 0;
+    int use_script_ = 1;
 
 private:
     SubMapInfo* getSubMapRecordFromID(int submap_id);
+    void layoutEventUI();
+    void showTextNotice(const std::string& text);
 
 public:
     int getLeaveEvent(Role* role);
     void callLeaveEvent(Role* role);
     void forceExit();
     void setUseScript(int u);
+
     bool isExiting() { return exit_; }
 
 public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}
     void oldTalk(int talk_id, int head_id, int style);
+    void newTalk(const std::string& talk_content, int head_id, int style, int voice);
     void addItem(int item_id, int count);
+    void addItemWithNotice(int item_id, int count, const std::string& notice);
     void modifyEvent(int submap_id, int event_index, int cannotWalk, int Num, int Event1, int Event2, int Event3,
         int BeginPic1, int EndPic, int BeginPic2, int PicDelay, int x, int y);
     bool isUsingItem(int item_id);
@@ -83,13 +91,13 @@ public:
     void join(int role_id);
     bool askRest();
     void rest();
-    void lightScence();
-    void darkScence();
+    void lightScene();
+    void darkScene();
     void dead();
     bool inTeam(int role_id);
     void setSubMapLayerData(int submap_id, int layer, int x, int y, int v);
     bool haveItemBool(int item_id);
-    void oldSetScencePosition(int x, int y);
+    void oldSetScenePosition(int x, int y);
     bool teamIsFull();
     void leaveTeam(int role_id);
     void zeroAllMP();
@@ -140,7 +148,28 @@ public:
 
     void arrangeBag();
     void clearTalkBox();
+
+    void setTeamMember(int index, int role_id);
+    int getTeamMember(int index) const;
+    void setSubMapEventData(int submap_id, int event_index, int offset, int value);
+    int getSubMapEventData(int submap_id, int event_index, int offset);
+    int getSubMapLayerData(int submap_id, int layer, int x, int y);
+    int getEventKey();
+    void drawEventImage(int type, int image_id, int x, int y);
+    void delayEvent(int milliseconds);
+    void setMainMapPosition(int x, int y);
+
     void blank() {}
+
+    const std::string& getTalkContent(int talk_id)
+    {
+        if (talk_id < 0 || talk_id >= talk_contents_.size())
+        {
+            static const std::string empty;
+            return empty;
+        }
+        return talk_contents_[talk_id];
+    }
 
 private:
     int x50[0x10000];
@@ -160,18 +189,21 @@ public:
     }
 
     //扩展的50指令，传入下一个指令的指针，某一条需要
-    void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr = nullptr);
+    void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr = nullptr, int* code_value = nullptr);
+
+    //某些指令需要绘图
+    std::shared_ptr<DrawNode> event_node_;
 
 public:
     void print_e(const std::vector<int>& e, int i, int size)
     {
         auto v = std::vector<int>(e.begin() + i, e.begin() + i + size);
-        fmt::print("{}\n", v);
+        LOG("{}\n", v);
     }
 
     template <typename F, typename C, std::size_t... I>
-    typename std::enable_if<check_return_type<F, C, void>::value, void>::type
-    runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
+        requires check_return_type<F, C, void>::value
+    void runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
     {
         auto cur_i = i;
         i += sizeof...(I) + 1;
@@ -180,8 +212,8 @@ public:
     }
 
     template <typename F, typename C, std::size_t... I>
-    typename std::enable_if<check_return_type<F, C, bool>::value, void>::type
-    runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
+        requires check_return_type<F, C, bool>::value
+    void runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
     {
         auto cur_i = i;
         i += sizeof...(I) + 1;

@@ -1,7 +1,10 @@
 #pragma once
 
 #include "TextBox.h"
+#include <memory>
 #include <string>
+
+class Menu;
 
 class InputBox : public TextBox
 {
@@ -11,21 +14,23 @@ public:
     virtual ~InputBox();
     void setTitle(const std::string& t) { title_ = t; }
 
-    void dealEvent(BP_Event& e) override;
+    void dealEvent(EngineEvent& e) override;
 
     virtual void draw() override;
     void setText(const std::string& text) { text_ = text; }
     std::string  getText() { return text_; };
     virtual void setInputPosition(int x, int y);
-    void setTextColor(BP_Color c) { color_ = c; }
+    void setActionButtons(bool enabled);
+    void setTextColor(Color c) { color_ = c; }
 
     virtual void onPressedCancel() override { exitWithResult(-1); }
-    virtual void onPressedOK() override { }
+    virtual void onPressedOK() override;
     virtual void onEntrance() override;
     virtual void onExit() override;
 
 protected:
     std::string title_;
     int text_x_ = 0, text_y_ = 0;
-    BP_Color color_ = { 32, 32, 32, 255 };
+    Color color_ = { 32, 32, 32, 255 };
+    std::shared_ptr<Menu> action_menu_;
 };

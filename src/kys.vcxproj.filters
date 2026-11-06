@@ -4,9 +4,6 @@
     <ClCompile Include="Application.cpp">
       <Filter>application</Filter>
     </ClCompile>
-    <ClCompile Include="kys.cpp">
-      <Filter>application</Filter>
-    </ClCompile>
     <ClCompile Include="BattleCursor.cpp">
       <Filter>battle</Filter>
     </ClCompile>
@@ -19,13 +16,10 @@
     <ClCompile Include="BattleScene.cpp">
       <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="Audio.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
     <ClCompile Include="UI.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UIConfig.cpp">
       <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="UIItem.cpp">
@@ -55,16 +49,13 @@
     <ClCompile Include="Button.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="TextureManager.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
     <ClCompile Include="Cloud.cpp">
       <Filter>scene</Filter>
     </ClCompile>
-    <ClCompile Include="Font.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
     <ClCompile Include="MainScene.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="MainScenePaper.cpp">
       <Filter>scene</Filter>
     </ClCompile>
     <ClCompile Include="SubScene.cpp">
@@ -85,20 +76,8 @@
     <ClCompile Include="GameUtil.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="Types.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="PotConv.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
     <ClCompile Include="RandomRole.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="Event.cpp">
-      <Filter>event</Filter>
-    </ClCompile>
-    <ClCompile Include="Script.cpp">
-      <Filter>event</Filter>
     </ClCompile>
     <ClCompile Include="GrpIdxFile.cpp">
       <Filter>save</Filter>
@@ -118,9 +97,6 @@
     <ClCompile Include="ParticleExample.cpp">
       <Filter>particle</Filter>
     </ClCompile>
-    <ClCompile Include="Point.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
     <ClCompile Include="InputBox.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -133,9 +109,6 @@
     <ClCompile Include="DrawableOnCall.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="OpenCCConverter.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
     <ClCompile Include="BattleNetwork.cpp">
       <Filter>battle</Filter>
     </ClCompile>
@@ -145,29 +118,108 @@
     <ClCompile Include="NewSave.cpp">
       <Filter>save</Filter>
     </ClCompile>
-    <ClCompile Include="ZipFile.cpp">
-      <Filter>zip</Filter>
-    </ClCompile>
     <ClCompile Include="ChemistryEngine.cpp">
       <Filter>chemistry</Filter>
     </ClCompile>
     <ClCompile Include="Object.cpp">
       <Filter>chemistry</Filter>
     </ClCompile>
-    <ClCompile Include="RunNode.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
     <ClCompile Include="..\others\Hanz2Piny.cpp">
       <Filter>hanzi2pinyin</Filter>
     </ClCompile>
-    <ClCompile Include="..\others\zip.c">
-      <Filter>zip</Filter>
+    <ClCompile Include="BattleSceneHades.cpp">
+      <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\common\convert.cpp">
-      <Filter>common</Filter>
+    <ClCompile Include="Font.cpp">
+      <Filter>font</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\common\File.cpp">
-      <Filter>common</Filter>
+    <ClCompile Include="Types.cpp">
+      <Filter>types</Filter>
+    </ClCompile>
+    <ClCompile Include="RunNode.cpp">
+      <Filter>runnode</Filter>
+    </ClCompile>
+    <ClCompile Include="UIKeyConfig.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="DrawNode.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mlcc\PotConv.cpp">
+      <Filter>mlcc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mlcc\strfunc.cpp">
+      <Filter>mlcc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mlcc\filefunc.cpp">
+      <Filter>mlcc</Filter>
+    </ClCompile>
+    <ClCompile Include="RunNodeFromJson.cpp">
+      <Filter>runnode</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleSceneSekiro.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="VirtualStick.cpp">
+      <Filter>virtualstick</Filter>
+    </ClCompile>
+    <ClCompile Include="Point.cpp">
+      <Filter>point</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureManager.cpp">
+      <Filter>texture</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleSceneAct.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="Event.cpp">
+      <Filter>event</Filter>
+    </ClCompile>
+    <ClCompile Include="Audio.cpp">
+      <Filter>audio</Filter>
+    </ClCompile>
+    <ClCompile Include="Weather.cpp">
+      <Filter>weather</Filter>
+    </ClCompile>
+    <ClCompile Include="Video.cpp">
+      <Filter>video</Filter>
+    </ClCompile>
+    <ClCompile Include="kys.cpp" />
+    <ClCompile Include="Camera.cpp">
+      <Filter>camera</Filter>
+    </ClCompile>
+    <ClCompile Include="PaperPresentation.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mlcc\SimpleCC.cpp">
+      <Filter>mlcc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mlcc\SQLite3Wrapper.cpp">
+      <Filter>mlcc</Filter>
+    </ClCompile>
+    <ClCompile Include="ScriptCifa.cpp">
+      <Filter>script</Filter>
+    </ClCompile>
+    <ClCompile Include="UIRenderer.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cifa\Cifa.cpp">
+      <Filter>cifa</Filter>
+    </ClCompile>
+    <ClCompile Include=".\..\mlcc\ZipFile2.cpp">
+      <Filter>mlcc</Filter>
+    </ClCompile>
+    <ClCompile Include="DayNightDisplay.cpp">
+      <Filter>sky</Filter>
+    </ClCompile>
+    <ClCompile Include="DayNightSystem.cpp">
+      <Filter>sky</Filter>
+    </ClCompile>
+    <ClCompile Include="PaperSky.cpp">
+      <Filter>sky</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -189,6 +241,12 @@
     <ClInclude Include="UI.h">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="UIConfig.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="UIRenderer.h">
+      <Filter>ui</Filter>
+    </ClInclude>
     <ClInclude Include="UIItem.h">
       <Filter>ui</Filter>
     </ClInclude>
@@ -202,9 +260,6 @@
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="Button.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="Font.h">
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="Head.h">
@@ -222,16 +277,10 @@
     <ClInclude Include="GameUtil.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="Types.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="Audio.h">
-      <Filter>engine</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine.h">
-      <Filter>engine</Filter>
-    </ClInclude>
     <ClInclude Include="MainScene.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="MainScenePaper.h">
       <Filter>scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene.h">
@@ -246,13 +295,7 @@
     <ClInclude Include="Cloud.h">
       <Filter>scene</Filter>
     </ClInclude>
-    <ClInclude Include="Event.h">
-      <Filter>event</Filter>
-    </ClInclude>
     <ClInclude Include="EventMacro.h">
-      <Filter>event</Filter>
-    </ClInclude>
-    <ClInclude Include="Script.h">
       <Filter>event</Filter>
     </ClInclude>
     <ClInclude Include="ShowExp.h">
@@ -267,12 +310,6 @@
     <ClInclude Include="TeamMenu.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="TextureManager.h">
-      <Filter>engine</Filter>
-    </ClInclude>
-    <ClInclude Include="PotConv.h">
-      <Filter>engine</Filter>
-    </ClInclude>
     <ClInclude Include="Talk.h">
       <Filter>event</Filter>
     </ClInclude>
@@ -284,9 +321,6 @@
     </ClInclude>
     <ClInclude Include="ParticleExample.h">
       <Filter>particle</Filter>
-    </ClInclude>
-    <ClInclude Include="Point.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="Application.h">
       <Filter>application</Filter>
@@ -303,9 +337,6 @@
     <ClInclude Include="DrawableOnCall.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="OpenCCConverter.h">
-      <Filter>util</Filter>
-    </ClInclude>
     <ClInclude Include="BattleNetwork.h">
       <Filter>battle</Filter>
     </ClInclude>
@@ -314,9 +345,6 @@
     </ClInclude>
     <ClInclude Include="NewSave.h">
       <Filter>save</Filter>
-    </ClInclude>
-    <ClInclude Include="ZipFile.h">
-      <Filter>zip</Filter>
     </ClInclude>
     <ClInclude Include="FunctionTrait.h">
       <Filter>event</Filter>
@@ -327,44 +355,112 @@
     <ClInclude Include="Object.h">
       <Filter>chemistry</Filter>
     </ClInclude>
-    <ClInclude Include="RunNode.h">
-      <Filter>util</Filter>
-    </ClInclude>
     <ClInclude Include="..\others\Hanz2Piny.h">
       <Filter>hanzi2pinyin</Filter>
-    </ClInclude>
-    <ClInclude Include="..\others\zip.h">
-      <Filter>zip</Filter>
-    </ClInclude>
-    <ClInclude Include="..\others\miniz.h">
-      <Filter>zip</Filter>
     </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>_Resources</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\common\convert.h">
-      <Filter>common</Filter>
+    <ClInclude Include="BattleSceneHades.h">
+      <Filter>battle</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\common\File.h">
-      <Filter>common</Filter>
+    <ClInclude Include="Font.h">
+      <Filter>font</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\common\INIReader.h">
-      <Filter>common</Filter>
+    <ClInclude Include="Types.h">
+      <Filter>types</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\common\Random.h">
-      <Filter>common</Filter>
+    <ClInclude Include="RunNode.h">
+      <Filter>runnode</Filter>
+    </ClInclude>
+    <ClInclude Include="UIKeyConfig.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="DrawNode.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="RunNodeFromJson.h">
+      <Filter>runnode</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleSceneSekiro.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\filefunc.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\INIReader.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\PotConv.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\strfunc.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="VirtualStick.h">
+      <Filter>virtualstick</Filter>
+    </ClInclude>
+    <ClInclude Include="Point.h">
+      <Filter>point</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleSceneAct.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="Event.h">
+      <Filter>event</Filter>
+    </ClInclude>
+    <ClInclude Include="Audio.h">
+      <Filter>audio</Filter>
+    </ClInclude>
+    <ClInclude Include="Weather.h">
+      <Filter>weather</Filter>
+    </ClInclude>
+    <ClInclude Include="Video.h">
+      <Filter>video</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>camera</Filter>
+    </ClInclude>
+    <ClInclude Include="PaperPresentation.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\SimpleCC.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\SQLite3Wrapper.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="Fade.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ScriptCifa.h">
+      <Filter>script</Filter>
+    </ClInclude>
+    <ClInclude Include="..\cifa\Cifa.h">
+      <Filter>cifa</Filter>
+    </ClInclude>
+    <ClInclude Include=".\..\mlcc\ZipFile2.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureManager.h">
+      <Filter>texture</Filter>
+    </ClInclude>
+    <ClInclude Include="DayNightSystem.h">
+      <Filter>sky</Filter>
+    </ClInclude>
+    <ClInclude Include="DayNightDisplay.h">
+      <Filter>sky</Filter>
+    </ClInclude>
+    <ClInclude Include="PaperSky.h">
+      <Filter>sky</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
       <UniqueIdentifier>{7ab4a26b-b9ce-4c3e-84a0-221cbbc561bf}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="headers">
-      <UniqueIdentifier>{b73723e8-c4d0-44c3-98c8-bbbe7cf111ca}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
-    <Filter Include="common">
-      <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
     </Filter>
     <Filter Include="util">
       <UniqueIdentifier>{3c678943-dbdf-4d4f-a01c-0c5b1e6321a6}</UniqueIdentifier>
@@ -378,9 +474,6 @@
     <Filter Include="engine">
       <UniqueIdentifier>{9a45ad9e-99a5-4c12-bcb1-061a80dcf7c1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="event">
-      <UniqueIdentifier>{30786fa7-72a0-4216-9bb9-7d45e9ee1975}</UniqueIdentifier>
-    </Filter>
     <Filter Include="save">
       <UniqueIdentifier>{757d4cc3-0d27-4fe1-89f8-331989fe526b}</UniqueIdentifier>
     </Filter>
@@ -392,19 +485,61 @@
     </Filter>
     <Filter Include="application">
       <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+      <Extensions>
+      </Extensions>
     </Filter>
-    <Filter Include="battle-mod">
-      <UniqueIdentifier>{766ecc17-3c46-4d31-9b42-c4deb6299f25}</UniqueIdentifier>
+    <Filter Include="chemistry">
+      <UniqueIdentifier>{035dc8b6-d3ba-46b1-9302-e7cdbc2c3b18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="font">
+      <UniqueIdentifier>{8aa821af-94ac-4543-89e2-43d37b3fa90c}</UniqueIdentifier>
     </Filter>
     <Filter Include="hanzi2pinyin">
       <UniqueIdentifier>{36f35be4-3d2e-449c-a190-2d755a70d4bb}</UniqueIdentifier>
     </Filter>
-    <Filter Include="zip">
-      <UniqueIdentifier>{6d628cf8-dd04-4c2b-ab7f-7ac40cd54b8f}</UniqueIdentifier>
+    <Filter Include="types">
+      <UniqueIdentifier>{b73723e8-c4d0-44c3-98c8-bbbe7cf111ca}</UniqueIdentifier>
+      <Extensions>
+      </Extensions>
     </Filter>
-    <Filter Include="chemistry">
-      <UniqueIdentifier>{035dc8b6-d3ba-46b1-9302-e7cdbc2c3b18}</UniqueIdentifier>
+    <Filter Include="runnode">
+      <UniqueIdentifier>{766ecc17-3c46-4d31-9b42-c4deb6299f25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="mlcc">
+      <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="point">
+      <UniqueIdentifier>{b22155ca-ee9e-42e3-8eef-d2d74109b5c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="texture">
+      <UniqueIdentifier>{3f5f1c37-008d-4f8b-ae4e-a958437e52cf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="event">
+      <UniqueIdentifier>{30786fa7-72a0-4216-9bb9-7d45e9ee1975}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="audio">
+      <UniqueIdentifier>{061a7da8-1904-4d23-8520-3c67dd56906a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="weather">
+      <UniqueIdentifier>{19d866e2-f3f5-4615-8b9d-b6f7a0c142d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="video">
+      <UniqueIdentifier>{47f493b4-9857-4cb6-acce-58e8ce93b3bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="camera">
+      <UniqueIdentifier>{8200e8bb-eb5a-4cfd-b91c-7bb4e5ae3402}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="script">
+      <UniqueIdentifier>{2a6c4b33-8077-46ba-b047-5afac2335732}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cifa">
+      <UniqueIdentifier>{fe8b0f3f-0e6f-4ae3-8a14-e713da054e16}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="virtualstick">
+      <UniqueIdentifier>{c64953ab-6bc5-432f-98db-3bc7d331e2a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sky">
+      <UniqueIdentifier>{c20000b9-ec38-4959-89ce-86a6288472e8}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

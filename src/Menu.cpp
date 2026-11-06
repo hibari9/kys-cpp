@@ -1,6 +1,5 @@
-#include "Menu.h"
+﻿#include "Menu.h"
 #include "Button.h"
-#include "Font.h"
 
 Menu::Menu()
 {
@@ -11,49 +10,163 @@ Menu::~Menu()
 {
 }
 
-void Menu::dealEvent(BP_Event& e)
+void Menu::dealEvent(EngineEvent& e)
 {
-    //此处处理键盘响应
-    if (e.type == BP_KEYDOWN)
+    if (deal_event_ == 0) { return; }
+    Direct direct = DIrectNone;
+    if (ud_style_ == 0)
     {
-        Direct direct = None;
-
-        switch (e.key.keysym.sym)
+        //此处处理键盘响应
+        if (e.type == EVENT_KEY_DOWN)
         {
-        case BPK_LEFT:
-            direct = Left;
-            break;
-        case BPK_UP:
-            direct = Up;
-            break;
-        case BPK_RIGHT:
-            direct = Right;
-            break;
-        case BPK_DOWN:
-            direct = Down;
-            break;
-        default:
-            break;
-        }
-
-        if (direct != None)
-        {
-            //如果全都没被选中，一般是鼠标漂到外边，则先选中上次的
-            bool all_normal = checkAllNormal();
-            setAllChildState(Normal);
-            if (all_normal)
+            switch (e.key.key)
             {
-                //当前的如果不显示，则找第一个
-                if (active_child_ < childs_.size() && !childs_[active_child_]->getVisible())
+            case K_LEFT:
+                direct = DirectLeft;
+                break;
+            case K_UP:
+                direct = DirectUp;
+                break;
+            case K_RIGHT:
+                direct = DirectRight;
+                break;
+            case K_DOWN:
+                direct = DirectDown;
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    else if (ud_style_ == 1)
+    {
+        if (e.type == EVENT_KEY_DOWN)
+        {
+            switch (e.key.key)
+            {
+            case K_PAGEUP:
+                direct = DirectUp;
+                break;
+            case K_PAGEDOWN:
+                direct = DirectDown;
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    //if (ud_style_ == 0)    //检查这个事件的反应比较慢
+    //{
+    //    if (e.type == EVENT_GAMEPAD_BUTTON_UP)
+    //    {
+    //        auto engine = Engine::getInstance();
+    //        if (lr_style_ == 0)
+    //        {
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_DPAD_UP)
+    //            {
+    //                direct = DirectUp;
+    //            }
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_DPAD_DOWN)
+    //            {
+    //                direct = DirectDown;
+    //            }
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_DPAD_LEFT)
+    //            {
+    //                direct = DirectLeft;
+    //            }
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_DPAD_RIGHT)
+    //            {
+    //                direct = DirectRight;
+    //            }
+    //        }
+    //        if (lr_style_ == 1)
+    //        {
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_RIGHT_SHOULDER)
+    //            {
+    //                direct = DirectRight;
+    //            }
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_LEFT_SHOULDER)
+    //            {
+    //                direct = DirectLeft;
+    //            }
+    //        }
+    //    }
+    //}
+    if (ud_style_ == 0)
+    {
+        //if (e.type == EVENT_GAMEPAD_BUTTON_DOWN)
+        {
+            auto engine = Engine::getInstance();
+            if (lr_style_ == 0)
+            {
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP))
                 {
-                    active_child_ = findFristVisibleChild();
+                    direct = DirectUp;
+                    engine->setInterValControllerPress(200);
+                }
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_DOWN))
+                {
+                    direct = DirectDown;
+                    engine->setInterValControllerPress(200);
+                }
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT))
+                {
+                    direct = DirectLeft;
+                    engine->setInterValControllerPress(200);
+                }
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT))
+                {
+                    direct = DirectRight;
+                    engine->setInterValControllerPress(200);
                 }
             }
-            else
+            if (lr_style_ == 1)
             {
-                active_child_ = findNextVisibleChild(active_child_, direct);
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_RIGHT_SHOULDER))
+                {
+                    direct = DirectRight;
+                    engine->setInterValControllerPress(200);
+                }
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_LEFT_SHOULDER))
+                {
+                    direct = DirectLeft;
+                    engine->setInterValControllerPress(200);
+                }
             }
-            forceActiveChild();
+        }
+    }
+    if (direct != DIrectNone)
+    {
+        //如果全都没被选中，一般是鼠标漂到外边，则先选中上次的
+        bool all_normal = checkAllNormal();
+        setAllChildState(NodeNormal);
+        if (all_normal)
+        {
+            //当前的如果不显示，则找第一个
+            if (active_child_ < childs_.size() && !childs_[active_child_]->getVisible())
+            {
+                active_child_ = findFristVisibleChild();
+            }
+        }
+        else
+        {
+            active_child_ = findNextVisibleChild(active_child_, direct);
+        }
+        forceActiveChild();
+    }
+    if (e.type == EVENT_MOUSE_MOTION
+        || ((e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_MOUSE_BUTTON_UP) && e.button.button == BUTTON_LEFT))
+    {
+        size_t active_child = active_child_;
+        if (active_child_ >= 0 && active_child < childs_.size() && childs_[active_child]->getState() != NodeNormal)
+        {
+            for (size_t i = 0; i < childs_.size(); i++)
+            {
+                if (i != active_child && childs_[i]->getState() != NodeNormal)
+                {
+                    childs_[i]->setState(NodeNormal);
+                }
+            }
         }
     }
 }
@@ -109,13 +222,27 @@ bool Menu::checkAllNormal()
     bool all_normal = true;
     for (auto c : childs_)
     {
-        if (c->getVisible() && c->getState() != Normal)
+        if (c->getVisible() && c->getState() != NodeNormal)
         {
             all_normal = false;
             break;
         }
     }
     return all_normal;
+}
+
+bool Menu::checkAllMouseNotIn()
+{
+    bool all_not_in = true;
+    for (auto c : childs_)
+    {
+        if (c->getVisible() && c->mouseIn())
+        {
+            all_not_in = false;
+            break;
+        }
+    }
+    return all_not_in;
 }
 
 //void Menu::onPressedOK()
@@ -127,7 +254,8 @@ bool Menu::checkAllNormal()
 //    }
 //}
 
-MenuText::MenuText(std::vector<std::string> items) : MenuText()
+MenuText::MenuText(std::vector<std::string> items) :
+    MenuText()
 {
     setStrings(items);
 }

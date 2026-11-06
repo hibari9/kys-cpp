@@ -1,10 +1,13 @@
-#pragma once
+﻿#pragma once
 #include "BattleCursor.h"
 #include "BattleMap.h"
 #include "BattleMenu.h"
+#include "Cloud.h"
+#include "PaperPresentation.h"
 #include "Point.h"
 #include "Random.h"
 #include "Scene.h"
+#include <map>
 
 // WinSock.h(Event.cpp, SubScene.cpp, TitleScene.cpp) 和asio有冲突
 // 仅在BattleScene.cpp中include BattleNetwork
@@ -14,22 +17,31 @@ class BattleNetwork;
 class BattleScene : public Scene
 {
 public:
-    static RandomDouble rng_;
+    RandomDouble rand_;
 
     BattleScene();
     BattleScene(int id);
     virtual ~BattleScene();
     void setID(int id);
+    int getTowardsByKey(Keycode key);
+    int getTowardsByMouse(int mouse_x, int mouse_y);
+    Point getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y);
 
     //继承自基类的函数
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;     //战场主循环
-    virtual void dealEvent2(BP_Event& e) override;    //用于停止自动
+    virtual void dealEvent(EngineEvent& e) override;     //战场主循环
+    virtual void dealEvent2(EngineEvent& e) override;    //用于停止自动
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void backRun() override;
+    void handlePaperCameraInput(EngineEvent& e);
 
 protected:
+    bool usePaperPresentation() const;
+    void initializePaperPresentation();
+    void drawPaperPresentation();
+    void handlePaperCameraEvent();
+
     int battle_id_ = 0;
     BattleInfo* info_;
 
@@ -55,12 +67,13 @@ protected:
     int select_x_ = 0, select_y_ = 0;
 
     //以下画图用
-    int action_frame_ = 0;
-    int action_type_ = -1;
+    //int action_frame_ = 0;
+    //int action_type_ = -1;
     int show_number_y_ = 0;
     int effect_id_ = -1;
     int effect_frame_ = 0;
-    uint8_t dead_alpha_ = 255;
+    int effect_attack_area_type_ = -1;
+    int dead_alpha_ = 255;
     static const int animation_delay_ = 2;
 
     // 动画，或者需要多写一坨if else等
@@ -70,7 +83,65 @@ protected:
 
     int semi_real_ = 0;    //是否半即时
 
+    int expedition33_ = 0;    //是否33远征队模式，即格挡和破盾
+
+    int easy_block_ = 0;    //格挡辅助：远征队下格挡和附加进攻自动成功
+
+    bool prev_block_pressed_ = false;
+
+    std::map<Role*, Point> block_role_offsets_;
+
+    struct BlockCounterInfo
+    {
+        Role* role = nullptr;
+        Magic* magic = nullptr;
+    };
+
+    struct BlockLightOverlay
+    {
+        std::vector<Role*> roles;
+        int frame = -1;
+        int total_frames = 0;
+    };
+
+    struct PointMagicOverlay
+    {
+        Point position;
+        std::vector<Magic*> magics;
+        int frame = -1;
+        int total_frames = 0;
+    };
+
+    struct LayerMagicOverlay
+    {
+        Magic* magic = nullptr;
+        int frame = -1;
+        int total_frames = 0;
+    };
+
+    enum class TimingPromptState
+    {
+        Ready,
+        Press,
+        Success,
+    };
+
+    BlockLightOverlay block_light_overlay_;
+    PointMagicOverlay point_magic_overlay_;
+    LayerMagicOverlay layer_magic_overlay_;
+
     std::unique_ptr<BattleNetwork> network_;    // 网络连接
+
+    int prev_music_ = 0;
+
+    std::shared_ptr<CloudGroup> cloud_group_;
+    PaperPresentation paper_presentation_;
+    Camera paper_camera_;
+    Role* paper_camera_follow_role_ = nullptr;
+    float paper_camera_angle_ = M_PI * 0.25f;
+    float paper_camera_distance_ = 510.0f;
+    float paper_camera_pitch_ = 0.47f;
+    float paper_camera_height_ = 260.0f;
 
 public:
     void setSelectPosition(int x, int y)    //设置选择的坐标
@@ -85,6 +156,8 @@ public:
     int selectY() { return select_y_; }
 
     virtual void setHaveFailExp(bool b) { fail_exp_ = b; }    //是否输了也有经验
+    virtual void setSemiReal(bool b) { semi_real_ = b; }
+    virtual void setExpedition33(bool b) { expedition33_ = b; }
 
     virtual void readBattleInfo();                                          //读取战场人物的数据
     virtual void setRoleInitState(Role* r);                                 //初始化人物的属性
@@ -127,6 +200,7 @@ public:
 
     virtual int calRoleDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }                     //计算距离
     virtual int calDistanceRound(int x1, int x2, int y1, int y2) { return sqrt((x1 - y1) * (x1 - y1) + (x2 - y2) * (x2 - y2)); }    //计算欧氏距离
+    void calDistanceLayer(int x, int y, MapSquareInt& distance_layer, int max_step);
 
     virtual Role* getSelectedRole();    //获取恰好在选择点的角色
 
@@ -145,24 +219,34 @@ public:
     virtual void actAuto(Role* r);                         //自动
     virtual void actRest(Role* r);                         //休息
 
-    virtual void moveAnimation(Role* r, int x, int y);                                 //移动动画
-    virtual void useMagicAnimation(Role* r, Magic* m);                                 //使用武学动画
-    virtual void actionAnimation(Role* r, int style, int effect_id, int shake = 0);    //行动动画
+    virtual void moveAnimation(Role* r, int x, int y);                                                                                  //移动动画
+    virtual bool useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr, bool* timing_success = nullptr);                              //使用武学动画
+    virtual bool actionAnimation(Role* r, int style, int effect_id, int shake = 0, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr, bool* timing_success = nullptr, int attack_area_type = -1);    //行动动画
 
-    virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic);                         //计算武学对单人的伤害
+    virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1);           //计算武学对单人的伤害
     virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
 
-    virtual int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item);    //计算暗器伤害
+    virtual int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item, int dis = -1);    //计算暗器伤害
 
     virtual void showMagicName(std::string name);    //显示武学名
 
     //显示数字
     virtual void showNumberAnimation(
-        int delay = animation_delay_,                                       // 跑几次
-        bool floating = true,                                               // 文字是否悬浮
-        const std::vector<std::pair<int&, int>>& animated_changes = {});    // 是否渐变某些变量
+        int delay = animation_delay_,                                        // 跑几次
+        bool floating = true,                                                // 文字是否悬浮
+        const std::vector<std::pair<int&, int>>& animated_changes = { });    // 是否渐变某些变量
 
     virtual void renderExtraRoleInfo(Role* r, int x, int y);    // 在人物上，显示血条等
+    virtual void renderShieldInfo(Role* r, int hp_x, int hp_y, int hp_max_w, double alpha);
+    virtual void renderAttackTimingCircle(int frame, int frame_count, const std::vector<Role*>* target_roles = nullptr);
+    virtual void renderBlockPrompt(TimingPromptState state);
+    virtual void renderBattleSceneOverlays();
+    virtual bool checkEnemyAttackBlockInput();
+    virtual std::vector<Role*> getBlockingRoles(Role* attacker);
+    virtual void blockAnimation(Role* attacker, const std::vector<Role*>& roles, const std::vector<BlockCounterInfo>& counters = {});
+    virtual void attackTimingSuccessAnimation(Role* attacker, Magic* magic, const std::vector<Role*>& roles);
+    virtual void resetBattleAnimationState();
+    virtual void syncBattleRolesFromLayer();
 
     virtual void clearDead();              //清除被击退的角色
     virtual void poisonEffect(Role* r);    //中毒效果
@@ -176,4 +260,28 @@ public:
     virtual void setupRolePosition(Role* r, int team, int x, int y);
     virtual void receiveAction(Role* r);
     virtual void sendAction(Role* r);
+
+    //以下是45度和90度坐标转换相关
+    Pointf pos45To90(int x, int y)    //45度坐标转为直角
+    {
+        Pointf p;
+        p.x = -y * TILE_W + x * TILE_W + COORD_COUNT * TILE_W;
+        p.y = y * TILE_W + x * TILE_W;
+        return p;
+    }
+
+    Pointf paperTileCenter(int x, int y)
+    {
+        return pos45To90(x, y) + Pointf{ 0, float(TILE_W), 0 };
+    }
+
+    Point pos90To45(double x, double y)    //直角坐标转为45度
+    {
+        x -= COORD_COUNT * TILE_W;
+        Point p;
+        p.x = round(((x) / TILE_W + (y) / TILE_W) / 2);
+        p.y = round(((-x) / TILE_W + (y) / TILE_W) / 2);
+        return p;
+    }
+    void makeEarthTexture();
 };

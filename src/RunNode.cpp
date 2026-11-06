@@ -1,14 +1,51 @@
-#include "RunNode.h"
+﻿#include "RunNode.h"
+#include "McpServer.h"
+#include "Audio.h"
 #include "Font.h"
+#include "GameUtil.h"
 #include "UISystem.h"
+#include "VirtualStick.h"
 
 std::vector<std::shared_ptr<RunNode>> RunNode::root_;
-int RunNode::prev_present_ticks_ = 0;
-int RunNode::refresh_interval_ = 16;
+double RunNode::global_prev_present_ticks_ = 0;
+double RunNode::refresh_interval_ = 16.666666;
 int RunNode::render_message_ = 0;
+int RunNode::use_virtual_stick_ = 0;
+
+static std::shared_ptr<VirtualStick>& virtual_stick()
+{
+    static std::shared_ptr<VirtualStick> v = std::make_shared<VirtualStick>();
+    return v;
+}
 
 RunNode::~RunNode()
 {
+}
+
+void RunNode::onWindowResized()
+{
+    for (auto& child : childs_)
+    {
+        if (child)
+        {
+            child->onWindowResized();
+        }
+    }
+}
+
+void RunNode::notifyWindowResized()
+{
+    for (auto& node : root_)
+    {
+        if (node)
+        {
+            node->onWindowResized();
+        }
+    }
+    if (use_virtual_stick_)
+    {
+        virtual_stick()->onWindowResized();
+    }
 }
 
 void RunNode::drawAll()
@@ -17,8 +54,7 @@ void RunNode::drawAll()
     int begin_base = 0;
     for (int i = 0; i < root_.size(); i++)    //记录最后一个全屏的层
     {
-        root_[i]->backRun();
-        root_[i]->current_frame_++;
+        root_[i]->backRunSelfChilds();
         if (root_[i]->full_window_)
         {
             begin_base = i;
@@ -28,17 +64,10 @@ void RunNode::drawAll()
     {
         root_[i]->drawSelfChilds();
     }
-}
-
-//设置位置，会改变子节点的位置
-void RunNode::setPosition(int x, int y)
-{
-    for (auto c : childs_)
+    if (use_virtual_stick_)
     {
-        c->setPosition(c->x_ + x - x_, c->y_ + y - y_);
+        virtual_stick()->drawSelfChilds();
     }
-    x_ = x;
-    y_ = y;
 }
 
 //从绘制的根节点移除
@@ -101,20 +130,15 @@ void RunNode::clearChilds()
     childs_.clear();
 }
 
-//画出自身和子节点
-void RunNode::drawSelfChilds()
+//设置位置，会改变子节点的位置
+void RunNode::setPosition(int x, int y)
 {
-    if (visible_)
+    for (auto c : childs_)
     {
-        draw();
-        for (auto c : childs_)
-        {
-            if (c->visible_)
-            {
-                c->drawSelfChilds();
-            }
-        }
+        c->setPosition(c->x_ + x - x_, c->y_ + y - y_);
     }
+    x_ = x;
+    y_ = y;
 }
 
 void RunNode::setAllChildState(int s)
@@ -135,15 +159,18 @@ void RunNode::setAllChildVisible(bool v)
 
 int RunNode::findNextVisibleChild(int i0, Direct direct)
 {
-    if (direct == None || childs_.size() == 0)
+    if (direct == DIrectNone || childs_.size() == 0)
     {
         return i0;
     }
     auto current = getChild(i0);
 
-    int min1 = 9999, min2 = 9999 * 2;
+    double min1 = 9999, min2 = 9999 * 10;
     int i1 = i0;
-    //1表示按键方向上的距离，2表示垂直于按键方向上的距离
+    int wrap_index = i0;
+    int wrap_distance = -1;
+    int wrap_offset = 999999;
+    //1表示平行于按键方向上的距离，2表示垂直于按键方向上的距离
     for (int i = 0; i < childs_.size(); i++)
     {
         if (i == i0 || childs_[i]->visible_ == false)
@@ -152,40 +179,59 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
         }
         auto c = childs_[i];
         int dis1, dis2;
+        double deg;
         switch (direct)
         {
-        case Left:
+        case DirectLeft:
             dis1 = current->x_ - c->x_;
             dis2 = abs(c->y_ - current->y_);
             break;
-        case Up:
+        case DirectUp:
             dis1 = current->y_ - c->y_;
             dis2 = abs(c->x_ - current->x_);
             break;
-        case Right:
+        case DirectRight:
             dis1 = c->x_ - current->x_;
             dis2 = abs(c->y_ - current->y_);
             break;
-        case Down:
+        case DirectDown:
             dis1 = c->y_ - current->y_;
             dis2 = abs(c->x_ - current->x_);
             break;
         default:
             break;
         }
-        if (dis1 <= 0)
+        if (dis1 == 0)
         {
-            dis1 += 10000;
+            continue;
         }
-        if (dis1 <= min1 && dis1 + dis2 < min2)
+        if (dis1 < 0)
         {
-            min1 = (std::min)(min1, dis1);
-            min2 = (std::min)(min2, dis1 + dis2);
+            int opposite_distance = -dis1;
+            if (opposite_distance > wrap_distance
+                || (opposite_distance == wrap_distance && dis2 < wrap_offset))
+            {
+                wrap_distance = opposite_distance;
+                wrap_offset = dis2;
+                wrap_index = i;
+            }
+            continue;
+        }
+        deg = atan2(dis2, dis1) * 180 / 3.14159265;
+        //LOG("{} {} {} \n", dis1, dis2, deg);
+        if (dis1 < min1 && deg < 15)
+        {
+            min1 = dis1;
             i1 = i;
         }
-        //以上数字的取法：如有坐标一致的点，不考虑第二距离（好像不太明显，以后再改吧）
+        if (dis1 + deg * 20 < min2)
+        {
+            min2 = dis1 + deg * 20;
+            i1 = i;
+        }
     }
-    return i1;
+    if (i1 != i0) { return i1; }
+    return wrap_index;
 }
 
 int RunNode::findFristVisibleChild()
@@ -200,6 +246,29 @@ int RunNode::findFristVisibleChild()
     return -1;
 }
 
+void RunNode::forceActiveChild()
+{
+    for (int i = 0; i < childs_.size(); i++)
+    {
+        childs_[i]->setState(NodeNormal);
+        if (i == active_child_)
+        {
+            childs_[i]->setState(NodePass);
+        }
+    }
+}
+
+//检测
+void RunNode::checkActiveToResult()
+{
+    result_ = -1;
+    int r = checkChildState();
+    if (r == active_child_)
+    {
+        result_ = active_child_;
+    }
+}
+
 void RunNode::checkFrame()
 {
     if (stay_frame_ > 0 && current_frame_ >= stay_frame_)
@@ -208,10 +277,47 @@ void RunNode::checkFrame()
     }
 }
 
+bool RunNode::isPressOK(EngineEvent& e)
+{
+    bool ret = (e.type == EVENT_KEY_UP && (e.key.key == K_RETURN || e.key.key == K_SPACE))
+        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_SOUTH);
+    return ret;
+}
+
+bool RunNode::isPressCancel(EngineEvent& e)
+{
+    bool ret = (e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
+        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_RIGHT)
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_EAST);
+    return ret;
+}
+
+//画出自身和子节点
+void RunNode::drawSelfChilds()
+{
+    if (visible_)
+    {
+        if (dark_)
+        {
+            //画上一层半透明黑，用于某些UI
+            Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+        }
+        draw();
+        for (auto c : childs_)
+        {
+            if (c->visible_)
+            {
+                c->drawSelfChilds();
+            }
+        }
+    }
+}
+
 //处理自身的事件响应
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
 //注意全屏类的节点要一直接受事件
-void RunNode::checkStateSelfChilds(BP_Event& e, bool check_event)
+void RunNode::checkStateSelfChilds(EngineEvent& e, bool check_event)
 {
     //if (exit_) { return; }
     if (visible_ || full_window_)
@@ -250,7 +356,7 @@ void RunNode::checkStateSelfChilds(BP_Event& e, bool check_event)
     }
     else
     {
-        state_ = Normal;
+        state_ = NodeNormal;
     }
 }
 
@@ -259,77 +365,139 @@ void RunNode::backRunSelfChilds()
     for (auto c : childs_)
     {
         c->backRunSelfChilds();
+        if (c->stay_frame_ > 0 && c->current_frame_ > c->stay_frame_)
+        {
+            removeChild(c);
+        }
     }
     backRun();
+    current_frame_++;    //此处统计帧数
 }
 
 //检测事件
 void RunNode::dealEventSelfChilds(bool check_event)
 {
+    McpServer::instance().pump(this, check_event);
+    if (McpServer::instance().enabled() && exit_) { return; }
     if (check_event)
     {
-        BP_Event e;
-        e.type = BP_FIRSTEVENT;
+        EngineEvent e;
+        e.type = EVENT_FIRST;
         //此处这样设计的原因是某些系统下会连续生成一大串事件，如果每个循环仅处理一个会造成响应慢
-        while (Engine::pollEvent(e))
+        bool mcp_event = McpServer::instance().takeEvent(e);
+        while (!mcp_event && Engine::getInstance()->pollEvent(e))
         {
             if (isSpecialEvent(e))
             {
                 break;
             }
         }
-        //if (e.type == BP_MOUSEBUTTONUP)
-        //{
-        //    fmt::print("BP_MOUSEBUTTONUP\n");
-        //}
-        checkStateSelfChilds(e, check_event);
-        switch (e.type)
+        if (e.type == EVENT_GAMEPAD_AXIS_MOTION)
         {
-        case BP_QUIT:
+            //摇杆移动会产生大量事件，暂时不处理
+            EngineEvent e1;
+            while (Engine::getInstance()->pollEvent(e1)) {};
+            //右摇杆控制鼠标，手感有问题，待处理
+            //if (e.caxis.axis == SDL_GAMEPAD_AXIS_RIGHTX || e.caxis.axis == SDL_GAMEPAD_AXIS_RIGHTY)
+            //{
+            //    auto axis_x = Engine::getInstance()->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
+            //    auto axis_y = Engine::getInstance()->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
+            //
+            //    //LOG("{} {}  ", axis_x, axis_y);
+            //    if (abs(axis_x) < 10000) { axis_x = 0; }
+            //    if (abs(axis_y) < 10000) { axis_y = 0; }
+            //    if (axis_x != 0 || axis_y != 0)
+            //    {
+            //        axis_x = GameUtil::clamp(axis_x, -30000, 30000);
+            //        axis_y = GameUtil::clamp(axis_y, -30000, 30000);
+            //        int x, y;
+            //        Engine::getInstance()->getMouseStateInStartWindow(x, y);
+            //        x += axis_x / 3000;
+            //        y += axis_y / 3000;
+            //        int w, h;
+            //        Engine::getInstance()->getUISize(w, h);
+            //        if (x >= w) { x = w - 1; }
+            //        if (x < 0) { x = 0; }
+            //        if (y >= h) { y = h - 1; }
+            //        if (y < 0) { y = 0; }
+            //        Engine::getInstance()->setMouseStateInStartWindow(x, y);
+            //        e.type = EVENT_MOUSE_MOTION;
+            //        e.motion.x = x;
+            //        e.motion.y = y;
+            //    }
+            //}
+        }
+        //SDL3中，这两个事件需要在AddEventWatch处理
+        if (e.type == EVENT_DID_ENTER_BACKGROUND)
+        {
+            //暂停音频
+            Audio::getInstance()->pauseMusic();
+        }
+        if (e.type == EVENT_DID_ENTER_FOREGROUND)
+        {
+            //恢复音频
+            Audio::getInstance()->resumeMusic();
+        }
+        if (e.type == EVENT_GAMEPAD_ADDED || e.type == EVENT_GAMEPAD_REMOVED)
+        {
+            LOG("Controllers changed\n");
+            Engine::getInstance()->checkGameControllers();
+        }
+        if (e.type == EVENT_WINDOW_RESIZED
+            || e.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
+            || e.type == EVENT_WINDOW_MAXIMIZED
+            || e.type == EVENT_WINDOW_RESTORED)
+        {
+            notifyWindowResized();
+        }
+        if (use_virtual_stick_)
+        {
+            virtual_stick()->dealEvent(e);
+        }
+        checkStateSelfChilds(e, check_event);
+        if (e.type == EVENT_QUIT
+            || (e.type == EVENT_WINDOW_CLOSE_REQUESTED))
+        {
             UISystem::askExit(1);
-            break;
-        default:
-            break;
         }
     }
     else
     {
-        Engine::pollEvent();
+        EngineEvent e{};
+        e.type = EVENT_FIRST;
+        if (use_virtual_stick_)
+        {
+            virtual_stick()->dealEvent(e);
+        }
+        checkStateSelfChilds(e, check_event);
     }
 }
 
 //是否为游戏需要处理的类型，避免丢失一些操作
-bool RunNode::isSpecialEvent(BP_Event& e)
+bool RunNode::isSpecialEvent(EngineEvent& e)
 {
-    return e.type == BP_MOUSEBUTTONDOWN
-        || e.type == BP_MOUSEBUTTONUP
-        || e.type == BP_KEYDOWN
-        || e.type == BP_KEYUP
-        || e.type == BP_TEXTINPUT
-        || e.type == BP_TEXTEDITING;
-}
-
-void RunNode::forceActiveChild()
-{
-    for (int i = 0; i < childs_.size(); i++)
-    {
-        childs_[i]->setState(Normal);
-        if (i == active_child_)
-        {
-            childs_[i]->setState(Pass);
-        }
-    }
-}
-
-//检测
-void RunNode::checkActiveToResult()
-{
-    result_ = -1;
-    int r = checkChildState();
-    if (r == active_child_)
-    {
-        result_ = active_child_;
-    }
+    //LOG("type = {}\n", e.type);
+    return e.type == EVENT_QUIT
+        || e.type == EVENT_WINDOW_CLOSE_REQUESTED
+        || e.type == EVENT_KEY_DOWN
+        || e.type == EVENT_KEY_UP
+        || e.type == EVENT_TEXT_EDITING
+        || e.type == EVENT_TEXT_INPUT
+        || e.type == EVENT_MOUSE_MOTION
+        || e.type == EVENT_MOUSE_BUTTON_DOWN
+        || e.type == EVENT_MOUSE_BUTTON_UP
+        || e.type == EVENT_MOUSE_WHEEL
+        || e.type == EVENT_GAMEPAD_AXIS_MOTION
+        || e.type == EVENT_GAMEPAD_BUTTON_DOWN
+        || e.type == EVENT_GAMEPAD_BUTTON_UP
+        || e.type == EVENT_DID_ENTER_BACKGROUND
+        || e.type == EVENT_WILL_ENTER_FOREGROUND
+        || e.type == EVENT_GAMEPAD_ADDED
+        || e.type == EVENT_GAMEPAD_REMOVED
+        || e.type == EVENT_WINDOW_RESIZED
+        || e.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
+        || e.type == EVENT_WINDOW_MAXIMIZED
+        || e.type == EVENT_WINDOW_RESTORED;
 }
 
 //获取子节点的状态
@@ -338,7 +506,7 @@ int RunNode::checkChildState()
     int r = -1;
     for (int i = 0; i < getChildCount(); i++)
     {
-        if (getChild(i)->getState() != Normal)
+        if (getChild(i)->getState() != NodeNormal)
         {
             r = i;
         }
@@ -346,70 +514,88 @@ int RunNode::checkChildState()
     return r;
 }
 
-void RunNode::checkSelfState(BP_Event& e)
+void RunNode::checkSelfState(EngineEvent& e)
 {
     //检测鼠标经过，按下等状态
-    //注意BP_MOUSEMOTION在mac下面有些问题，待查
-    if (e.type == BP_MOUSEMOTION)
+    //BP_MOUSEMOTION似乎有些问题，待查
+    //LOG("{} ", e.type);
+    if (e.type == EVENT_MOUSE_MOTION)
     {
         if (inSide(e.motion.x, e.motion.y))
         {
-            state_ = Pass;
+            state_ = NodePass;
         }
         else
         {
-            state_ = Normal;
+            state_ = NodeNormal;
         }
     }
-    if ((e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP) && e.button.button == BP_BUTTON_LEFT)
+    if ((e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_MOUSE_BUTTON_UP) && e.button.button == BUTTON_LEFT)
     {
         if (inSide(e.button.x, e.button.y))
         {
-            state_ = Press;
+            state_ = NodePress;
         }
         else
         {
-            state_ = Normal;
+            state_ = NodeNormal;
         }
     }
-    if ((e.type == BP_KEYDOWN || e.type == BP_KEYUP) && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+    if ((e.type == EVENT_KEY_DOWN || e.type == EVENT_KEY_UP) && (e.key.key == K_RETURN || e.key.key == K_SPACE))
     {
         //按下键盘的空格或者回车时，将pass的按键改为press
-        if (state_ == Pass)
+        if (state_ == NodePass)
         {
-            state_ = Press;
+            state_ = NodePress;
+        }
+    }
+    if ((e.type == EVENT_GAMEPAD_BUTTON_DOWN || e.type == EVENT_GAMEPAD_BUTTON_UP) && e.gbutton.button == GAMEPAD_BUTTON_SOUTH)
+    {
+        //int x, y;
+        //Engine::getInstance()->getMouseState(x, y);
+        if (state_ == NodePass)
+        {
+            state_ = NodePress;
         }
     }
 }
 
 void RunNode::present()
 {
-    int t = Engine::getTicks() - prev_present_ticks_;
-
+    auto t = Engine::getTicks() - global_prev_present_ticks_;
+    auto e = Engine::getInstance();
     if (render_message_)
     {
-        auto e = Engine::getInstance();
-        Font::getInstance()->draw("Render one frame in " + std::to_string(t) + " ms", 20, e->getWindowWidth() - 300, e->getWindowHeight() - 60);
-        Font::getInstance()->draw("RenderCopy time is " + std::to_string(Engine::getInstance()->getRenderTimes()), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 35);
+        int w = e->getPresentWidth();
+        int h = e->getPresentHeight();
+        Font::getInstance()->draw(std::format("Render one frame in {:.3f} ms", t), 20, w - 300, h - 60);
+        Font::getInstance()->draw(std::format("Render texture time is {}", Engine::getInstance()->getRenderTimes()), 20, w - 300, h - 35);
         e->resetRenderTimes();
     }
-    Engine::getInstance()->renderPresent();
-    int t_delay = refresh_interval_ - t;
+    e->resetRenderTarget();
+    e->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1, BLENDMODE_NONE);
+    e->renderMainTextureToWindow();
+    Font::getInstance()->executeDrawCalls();
+    McpServer::instance().captureFrame();
+    e->renderPresent();
+    e->setRenderMainTexture();
+    auto t_delay = refresh_interval_ - t;
     if (t_delay > refresh_interval_)
     {
         t_delay = refresh_interval_;
     }
-    //fmt::print("%d/%d ", t_delay, prev_present_ticks_);
+    //LOG("{}/{}/{} ", t, t_delay, global_prev_present_ticks_);
     if (t_delay > 0)
     {
         Engine::delay(t_delay);
     }
-    prev_present_ticks_ = Engine::getTicks();
+    global_prev_present_ticks_ = Engine::getTicks();
 }
 
 //运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出
 int RunNode::run(bool in_root /*= true*/)
 {
+    if (!root_.empty() && root_.back()->exit_) { return 1; }    //若当前根节点已经退出，则不再运行
     exit_ = false;
     visible_ = true;
     if (in_root)

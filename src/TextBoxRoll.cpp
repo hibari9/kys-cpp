@@ -20,7 +20,7 @@ void TextBoxRoll::draw()
         if (i < begin_line_)
         {
             continue;
-        }        
+        }
         if (roll_line_ > 0 && line_count >= roll_line_)
         {
             break;
@@ -36,7 +36,7 @@ void TextBoxRoll::draw()
     }
 }
 
-void TextBoxRoll::dealEvent(BP_Event& e)
+void TextBoxRoll::dealEvent(EngineEvent& e)
 {
     if (roll_line_ <= 0)
     {
@@ -44,7 +44,7 @@ void TextBoxRoll::dealEvent(BP_Event& e)
     }
     switch (e.type)
     {
-    case BP_MOUSEWHEEL:
+    case EVENT_MOUSE_WHEEL:
         if (e.wheel.y < 0)
         {
             begin_line_++;
@@ -57,5 +57,5 @@ void TextBoxRoll::dealEvent(BP_Event& e)
     default:
         break;
     }
-    begin_line_ = GameUtil::limit(begin_line_, 0, texts_.size() - roll_line_);
+    begin_line_ = GameUtil::clamp(begin_line_, 0, int(texts_.size() - roll_line_));
 }

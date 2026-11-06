@@ -1,14 +1,20 @@
-#include "MainScene.h"
+﻿#include "MainScene.h"
 #include "Console.h"
-#include "File.h"
+#include "DayNightSystem.h"
+#include "Fade.h"
+#include "Font.h"
+#include "GameUtil.h"
+#include "GrpIdxFile.h"
+#include "MainScenePaper.h"
 #include "Random.h"
 #include "Save.h"
 #include "SubScene.h"
 #include "TextureManager.h"
 #include "UI.h"
 #include "UISave.h"
-#include <ctime>
-//#include "Timer.h"
+#include "Weather.h"
+#include <algorithm>
+#include <cmath>
 
 MainScene::MainScene()
 {
@@ -27,11 +33,11 @@ MainScene::MainScene()
 
         int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
 
-        File::readFile("../game/resource/earth.002", &earth_layer1.data(0), length);
-        File::readFile("../game/resource/surface.002", &surface_layer1.data(0), length);
-        File::readFile("../game/resource/building.002", &building_layer1.data(0), length);
-        File::readFile("../game/resource/buildx.002", &build_x_layer_.data(0), length);
-        File::readFile("../game/resource/buildy.002", &build_y_layer_.data(0), length);
+        GrpIdxFile::readFile(GameUtil::PATH() + "resource/earth.002", &earth_layer1.data(0), length);
+        GrpIdxFile::readFile(GameUtil::PATH() + "resource/surface.002", &surface_layer1.data(0), length);
+        GrpIdxFile::readFile(GameUtil::PATH() + "resource/building.002", &building_layer1.data(0), length);
+        GrpIdxFile::readFile(GameUtil::PATH() + "resource/buildx.002", &build_x_layer_.data(0), length);
+        GrpIdxFile::readFile(GameUtil::PATH() + "resource/buildy.002", &build_y_layer_.data(0), length);
 
         divide2(earth_layer1, earth_layer_);
         divide2(surface_layer1, surface_layer_);
@@ -39,22 +45,29 @@ MainScene::MainScene()
     }
     data_readed_ = true;
 
-    //100个云
-    cloud_vector_.resize(100);
-    for (int i = 0; i < 100; i++)
-    {
-        cloud_vector_[i].initRand();
-    }
+    cloud_group_ = std::make_shared<CloudGroup>();
+    cloud_group_->init(100, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    addChild(cloud_group_);
     //getEntrance();
-    weather_ = std::make_shared<ParticleWeather>();
-    weather_->setRenderer(Engine::getInstance()->getRenderer());
-    weather_->setTexture(TextureManager::getInstance()->loadTexture("title", 201)->getTexture());
-    weather_->stopSystem();
-    addChild(weather_);
+    addChild(Weather::getInstance());
 }
 
 MainScene::~MainScene()
 {
+}
+
+std::shared_ptr<MainScene> MainScene::getInstance()
+{
+    static std::shared_ptr<MainScene> ms = []() -> std::shared_ptr<MainScene>
+    {
+        //{
+        //    LOG("Main scene mode: Paper\n");
+        //    return std::make_shared<MainScenePaper>();
+        //}
+        //LOG("Main scene mode: Normal\n");
+        return std::make_shared<MainScene>();
+    }();
+    return ms;
 }
 
 void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
@@ -64,7 +77,7 @@ void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
         m1.data(i) /= 2;
         if (m1.data(i) > 0)
         {
-            m.data(i).tex_ = TextureManager::getInstance()->loadTexture("mmap", m1.data(i));
+            m.data(i).tex_ = TextureManager::getInstance()->getTexture("mmap", m1.data(i));
             auto pic = m1.data(i);
             auto& a = m.data(i);
             if (pic == 419 || pic >= 306 && pic <= 335)
@@ -91,12 +104,14 @@ void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
 
 void MainScene::draw()
 {
-    Engine::getInstance()->setRenderAssistTexture();
+    auto day_night = DayNightSystem::getInstance();
+    Color ambient_color = day_night->getLighting().ambient_color;
+    Engine::getInstance()->setRenderTarget("scene");
 
     struct DrawInfo
     {
         int index;
-        Texture* tex;
+        TextureWarpper* tex;
         Point p;
     };
 
@@ -106,6 +121,43 @@ void MainScene::draw()
     int building_count = 0;
     //TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
+
+    //新的画地面方法
+    if (TextureManager::getInstance()->getTextureGroup("mmap-earth")->getTextureCount() > 0)
+    {
+        const int earth_size = TILE_W * 480 * 2;
+        auto pe = getWalkingPositionOnRender(0, 0);
+        int earth_x = pe.x - earth_size / 2;
+        int earth_y = pe.y - TILE_H * 2 + 1;
+        int view_w, view_h;
+        Engine::getInstance()->getAssistTextureSize("scene", view_w, view_h);
+        Engine::getInstance()->createAssistTexture("temp", view_w, view_h);
+        Engine::getInstance()->setRenderTarget("temp");
+        for (int i = 0; i < 8; i++)
+        {
+            for (int j = 0; j < 8; j++)
+            {
+                int x = i * earth_size / 8 + earth_x;
+                int y = j * earth_size / 8 / 2 + earth_y;
+                int w = earth_size / 8;
+                int h = earth_size / 8 / 2;
+                if (x > view_w || y > view_h || x + w < 0 || y + h < 0)
+                {
+                    continue;
+                }
+                TextureManager::getInstance()->renderTexture("mmap-earth", i + j * 8, i * earth_size / 8 + earth_x, j * earth_size / 8 / 2 + earth_y);
+            }
+        }
+        Engine::getInstance()->setRenderTarget("scene");
+        std::vector<float> brightness_v(4, 0);
+        brightness_v[0] = 0.5f;
+        brightness_v[2] = 0;
+        std::vector<Color> color_v(4, ambient_color);
+        auto temp_texture = Engine::getInstance()->getTexture("temp");
+        Rect r = { 0, 0, view_w, view_h };
+        Engine::getInstance()->renderTextureLight(temp_texture, nullptr, &r, color_v, brightness_v);
+    }
+
     //下面的15是下方较高贴图的余量，其余场景同
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
@@ -113,23 +165,24 @@ void MainScene::draw()
         {
             int ix = man_x_ + i + (sum / 2);
             int iy = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
+            auto p = getWalkingPositionOnRender(ix, iy);
             p.x += x_;
             p.y += y_;
             //auto p = getMapPoint(ix, iy, *_Mx, *_My);
             if (!isOutLine(ix, iy))
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
-#ifndef _DEBUG
-                //调试模式下不画出地面，图的数量太多占用CPU很大
-                if (earth_layer_.data(ix, iy).getTexture())
+                if (TextureManager::getInstance()->getTextureGroup("mmap-earth")->getTextureCount() == 0)
                 {
-                    TextureManager::getInstance()->renderTexture(earth_layer_.data(ix, iy).getTexture(), p.x, p.y);
-                }
-#endif
-                if (surface_layer_.data(ix, iy).getTexture())
-                {
-                    TextureManager::getInstance()->renderTexture(surface_layer_.data(ix, iy).getTexture(), p.x, p.y);
+                    //调试模式下不画出地面，图的数量太多占用CPU很大--取消
+                    if (earth_layer_.data(ix, iy).getTexture())
+                    {
+                        TextureManager::getInstance()->renderTexture(earth_layer_.data(ix, iy).getTexture(), p.x, p.y, { ambient_color });
+                    }
+                    if (surface_layer_.data(ix, iy).getTexture())
+                    {
+                        TextureManager::getInstance()->renderTexture(surface_layer_.data(ix, iy).getTexture(), p.x, p.y, { ambient_color });
+                    }
                 }
                 if (building_layer_.data(ix, iy).getTexture())
                 {
@@ -140,7 +193,7 @@ void MainScene::draw()
                     auto w = tex->w;
                     auto h = tex->h;
                     auto dy = tex->dy;
-                    int c = ((ix + iy) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + ix;
+                    int c = ((ix + iy) - (w + TILE_W * 2 - 1) / (TILE_W * 2) - (dy - h + 1) / (TILE_H / 2)) * 1024 + ix;
                     //map[2 * c + 1] = { 2*c+1, t, p };
                     building_vec[building_count++] = { 2 * c + 1, tex, p };
                 }
@@ -158,9 +211,13 @@ void MainScene::draw()
                             man_pic_ = REST_PIC_0 + Scene::towards_ * REST_PIC_COUNT + (rest_time_ - BEGIN_REST_TIME) / REST_INTERVAL % REST_PIC_COUNT;
                         }
                     }
-                    int c = 1024 * (ix + iy) + ix;
-                    //map[2 * c] = {2*c, man_pic_, p };
-                    building_vec[building_count++] = { 2 * c, TextureManager::getInstance()->loadTexture("mmap", man_pic_), p };
+                    double visual_x = ix + (walking_ ? (walk_to_.x - ix) * walk_progress_ : 0);
+                    double visual_y = iy + (walking_ ? (walk_to_.y - iy) * walk_progress_ : 0);
+                    int c = int(std::lround(2 * (1024 * (visual_x + visual_y) + visual_x)));
+                    auto man_p = getPositionOnRender(ix, iy, man_x_, man_y_);
+                    man_p.x += x_;
+                    man_p.y += y_;
+                    building_vec[building_count++] = { c, TextureManager::getInstance()->getTexture("mmap", man_pic_), man_p };
                 }
             }
         }
@@ -178,132 +235,193 @@ void MainScene::draw()
     for (int i = 0; i < building_count; i++)
     {
         auto& d = building_vec[i];
-        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y);
+        std::vector<float> brightness_v(4, 0);
+        brightness_v[0] = 1.0f;
+        brightness_v[2] = 0;
+        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y,
+            { ambient_color, 255, 1, 1, 0, 0, std::vector<Color>(4, ambient_color), brightness_v });
     }
+    auto p = getWalkingPositionOnRender(cursor_x_, cursor_y_);
+    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { { 255, 255, 255, 255 }, 128 });
 
-    auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
-    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { 255, 255, 255, 255 }, 128);
-
-    for (auto& c : cloud_vector_)
-    {
-        c.draw();
-    }
-    //fmt::print("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
-    //Engine::getInstance()->setColor(Engine::getInstance()->getRenderAssistTexture(), { 227, 207, 87, 255 });
-    Engine::getInstance()->renderAssistTextureToWindow();
+    //LOG("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
+    //Engine::getInstance()->setColor(Engine::getInstance()->getTexture(), { 227, 207, 87, 255 });
+    Engine::getInstance()->renderTextureToMain("scene");
 }
 
 void MainScene::backRun()
 {
     rest_time_++;    //只要出现走动，rest_time就会清零
     //云的贴图
-    view_cloud_ = 0;
-    for (auto& c : cloud_vector_)
-    {
-        c.flow();
-        c.setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
-        int x, y;
-        c.getPosition(x, y);
-        if (x > -render_center_x_ * 1 && x < render_center_x_ * 3 && y > -0 && y < render_center_y_ * 2)
-        {
-            view_cloud_++;
-        }
-    }
-    setWeather();
+    auto offset = walking_ ? getWalkOffset() : Point{ 0, 0 };
+    view_cloud_ = cloud_group_->setPositionOnScreen(man_x_, man_y_, render_center_x_ + offset.x, render_center_y_ + offset.y);
+
+    Weather::getInstance()->setWeather(inNorth(), view_cloud_);
 }
 
-void MainScene::dealEvent(BP_Event& e)
+void MainScene::dealEvent(EngineEvent& e)
 {
+    auto engine = Engine::getInstance();
+    bool arrived = updateWalking();
+    if (arrived
+        && checkEntrance(man_x_, man_y_))
+    {
+        way_que_.clear();
+        setMouseEventPoint(-1, -1);
+        total_step_ = 0;
+    }
+    if (!walking_ && way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+    {
+        auto target = Point{ mouse_event_x_, mouse_event_y_ };
+        setMouseEventPoint(-1, -1);
+        if (calDistance(man_x_, man_y_, target.x, target.y) == 1)
+        {
+            towards_ = calTowards(man_x_, man_y_, target.x, target.y);
+            checkEntrance(target.x, target.y);
+        }
+        walk_next_started_ = -1;
+    }
     //强制进入，通常用于开始
     if (force_submap_ >= 0)
     {
+        cancelWalking();
+        way_que_.clear();
+        setMouseEventPoint(-1, -1);
         setVisible(true);
-        auto sub_map =  std::make_shared<SubScene>(force_submap_);
+        auto sub_map = std::make_shared<SubScene>(force_submap_);
         sub_map->setManViewPosition(force_submap_x_, force_submap_y_);
         sub_map->setTowards(towards_);
         sub_map->setForceBeginEvent(force_event_);
         sub_map->run();
         towards_ = sub_map->towards_;
+        //Fade::fadeIn(8);
         force_submap_ = -1;
         force_event_ = -1;
     }
 
-    int x = man_x_, y = man_y_;
-
-    //键盘走路部分，检测4个方向键
-    int pressed = 0;
-
     // Tab激活控制台
-    if (Engine::getInstance()->checkKeyPress(BPK_TAB))
+    if (e.type == EVENT_KEY_UP && e.key.key == K_TAB
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_BACK))
     {
+        cancelWalking();
+        way_que_.clear();
+        setMouseEventPoint(-1, -1);
         Console c;
     }
-
-    for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
+    if ((e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
+        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_RIGHT)
+        //|| (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
+        || engine->gameControllerGetButton(GAMEPAD_BUTTON_START))
     {
-        if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
-        {
-            pressed = i;
-        }
-    }
-    if (pressed == 0 && Engine::getInstance()->checkKeyPress(pre_pressed_))
-    {
-        pressed = pre_pressed_;
-    }
-    pre_pressed_ = pressed;
-
-    if (pressed)
-    {
-        //注意，中间空出几个步数是为了可以单步行动，子场景同
-        if (total_step_ < 1 || total_step_ >= first_step_delay_)
-        {
-            changeTowardsByKey(pressed);
-            getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
-            tryWalk(x, y);
-        }
-        total_step_++;
-    }
-    else
-    {
-        total_step_ = 0;
-    }
-
-    if (pressed && checkEntrance(x, y))
-    {
+        cancelWalking();
         way_que_.clear();
-        total_step_ = 0;
+        setMouseEventPoint(-1, -1);
+        UI::getInstance()->run();
     }
-
-    if (!way_que_.empty())
+    //LOG("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
+    int x = man_x_, y = man_y_;
+    if (!walking_ && (walkingDuration() || engine->getTicks() - pre_pressed_ticks_ > key_walk_delay_))
     {
-        Point p = way_que_.back();
-        x = p.x;
-        y = p.y;
-        auto tw = calTowards(man_x_, man_y_, x, y);
-        if (tw != Towards_None)
+        //键盘走路部分，检测4个方向键
+        int pressed = 0;
+        pre_pressed_ticks_ = engine->getTicks();
+        auto axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFTX);
+        auto axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFTY);
+        if (abs(axis_x) < 10000) { axis_x = 0; }
+        if (abs(axis_y) < 10000) { axis_y = 0; }
+        if (axis_x != 0 || axis_y != 0)
         {
-            towards_ = tw;
+            Pointf axis{ float(axis_x), float(axis_y) };
+            auto to = realTowardsToFaceTowards(axis);
+            if (to == Towards_LeftUp) { pressed = K_LEFT; }
+            if (to == Towards_LeftDown) { pressed = K_DOWN; }
+            if (to == Towards_RightDown) { pressed = K_RIGHT; }
+            if (to == Towards_RightUp) { pressed = K_UP; }
         }
-        tryWalk(x, y);
-        way_que_.pop_back();
-        if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT)) { pressed = K_LEFT; }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_DOWN)) { pressed = K_DOWN; }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT)) { pressed = K_RIGHT; }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP)) { pressed = K_UP; }
+        if (engine->checkKeyPress(K_A)) { pressed = K_LEFT; }
+        if (engine->checkKeyPress(K_S)) { pressed = K_DOWN; }
+        if (engine->checkKeyPress(K_D)) { pressed = K_RIGHT; }
+        if (engine->checkKeyPress(K_W)) { pressed = K_UP; }
+
+        for (auto i = int(K_RIGHT); i <= int(K_UP); i++)
         {
-            towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
-            if (checkEntrance(mouse_event_x_, mouse_event_y_))
+            if (i != pre_pressed_ && engine->checkKeyPress(i))
             {
-                way_que_.clear();
-                setMouseEventPoint(-1, -1);
+                pressed = i;
+            }
+        }
+        if (pressed == 0 && engine->checkKeyPress(pre_pressed_))
+        {
+            pressed = pre_pressed_;
+        }
+        pre_pressed_ = pressed;
+
+        if (pressed)
+        {
+            way_que_.clear();
+            setMouseEventPoint(-1, -1);
+            //注意，中间空出几个步数是为了可以单步行动，子场景同
+            if (walkingDuration() || total_step_ < 1 || total_step_ >= first_step_delay_)
+            {
+                changeTowardsByKey(pressed);
+                getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
+                tryWalk(x, y);
+            }
+            total_step_++;
+        }
+        else
+        {
+            if (rest_time_ > 2) { total_step_ = 0; }    //虚拟按键中间可能出现空白帧，此处减少清空的情况，为了第一步可以不连续
+        }
+
+        if (pressed && !walking_ && checkEntrance(x, y))
+        {
+            way_que_.clear();
+            total_step_ = 0;
+        }
+
+        if (!way_que_.empty())
+        {
+            Point p = way_que_.back();
+            x = p.x;
+            y = p.y;
+            auto tw = calTowards(man_x_, man_y_, x, y);
+            if (tw != Towards_None)
+            {
+                towards_ = tw;
+            }
+            tryWalk(x, y);
+            way_que_.pop_back();
+            if (!walking_ && way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+            {
+                towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
+                if (checkEntrance(mouse_event_x_, mouse_event_y_))
+                {
+                    way_que_.clear();
+                    setMouseEventPoint(-1, -1);
+                }
             }
         }
     }
-
-    calCursorPosition(man_x_, man_y_);
+    int cursor_mx, cursor_my;
+    engine->getMouseStateInStartWindow(cursor_mx, cursor_my);
+    auto cursor = getWalkingMousePosition(cursor_mx, cursor_my);
+    cursor_x_ = cursor.x;
+    cursor_y_ = cursor.y;
 
     //鼠标寻路
-    if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
+    if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
     {
         setMouseEventPoint(-1, -1);
-        Point p = getMousePosition(e.button.x, e.button.y, x, y);
+        int mx, my;
+        Engine::getInstance()->getMouseStateInStartWindow(mx, my);
+        Point p = getWalkingMousePosition(mx, my);
+        x = walking_ ? walk_to_.x : man_x_;
+        y = walking_ ? walk_to_.y : man_y_;
         way_que_.clear();
         if (canWalk(p.x, p.y) /* && !isOutScreen(p.x, p.y)*/)
         {
@@ -362,6 +480,7 @@ void MainScene::dealEvent(BP_Event& e)
             }
         }
     }
+    if (!walking_) { walk_next_started_ = -1; }
 }
 
 void MainScene::onEntrance()
@@ -372,7 +491,7 @@ void MainScene::onEntrance()
     //    forceEnterSubScene(force_submap_, force_submap_x_, force_submap_y_);
     //}
     //一大块地面的纹理
-    //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    //earth_texture = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 }
 
 void MainScene::onExit()
@@ -381,15 +500,17 @@ void MainScene::onExit()
 
 void MainScene::onPressedCancel()
 {
-    UI::getInstance()->run();
 }
 
 void MainScene::tryWalk(int x, int y)
 {
+    if (walking_) { return; }
     if (canWalk(x, y))
     {
-        man_x_ = x;
-        man_y_ = y;
+        if (!beginWalking(x, y, man_x_, man_y_))
+        {
+            setManPosition(x, y);
+        }
     }
     step_++;
     if (isWater(man_x_, man_y_))
@@ -406,8 +527,16 @@ void MainScene::tryWalk(int x, int y)
     rest_time_ = 0;
 }
 
+void MainScene::setEntrance()
+{
+}
+
 bool MainScene::isBuilding(int x, int y)
 {
+    if (isOutLine(x, y))
+    {
+        return false;
+    }
     return (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)).getTexture() != nullptr);
 }
 
@@ -416,10 +545,15 @@ int MainScene::isWater(int x, int y)
     return earth_layer_.data(x, y).material_ == ObjectMaterial::Water;
 }
 
+bool MainScene::isOutScreen(int x, int y)
+{
+    return (abs(man_x_ - x) >= 2 * view_width_region_ || abs(man_y_ - y) >= view_sum_region_);
+}
+
 bool MainScene::canWalk(int x, int y)
 {
     //这里不需要加，实际上入口都是无法走到的
-    if (isOutLine(x, y) || isBuilding(x, y))// || isWater(x, y))
+    if (isOutLine(x, y) || isBuilding(x, y))    // || isWater(x, y))
     {
         return false;
     }
@@ -459,13 +593,17 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
             }
             if (can_enter)
             {
+                cancelWalking();
+                way_que_.clear();
+                setMouseEventPoint(-1, -1);
                 UISave::autoSave();
                 //这里看起来要主动多画一帧，待修
                 drawAndPresent();
-                auto sub_map =  std::make_shared<SubScene>(i);
+                auto sub_map = std::make_shared<SubScene>(i);
                 sub_map->setManViewPosition(s->EntranceX, s->EntranceY);
                 sub_map->run();
                 towards_ = sub_map->towards_;
+                //Fade::fadeIn(8);
                 return true;
             }
         }
@@ -486,46 +624,4 @@ void MainScene::forceEnterSubScene(int submap_id, int x, int y, int event)
     }
     force_event_ = event;
     setVisible(false);
-}
-
-void MainScene::setWeather()
-{
-    weather_->setPosition(Engine::getInstance()->getWindowWidth() / 2, 0);
-    if (inNorth())
-    {
-        weather_->setStyle(ParticleExample::SNOW);
-        if (!weather_->isActive())
-        {
-            weather_->resetSystem();
-        }
-    }
-    else
-    {
-        if (view_cloud_)
-        {
-            weather_->setStyle(ParticleExample::RAIN);
-            weather_->setEmissionRate(50 * view_cloud_);
-            weather_->setGravity({ 10, 20 });
-            if (!weather_->isActive())
-            {
-                weather_->resetSystem();
-            }
-        }
-        else
-        {
-            if (weather_->isActive())
-            {
-                weather_->stopSystem();
-            }
-        }
-    }
-}
-
-void MainScene::setEntrance()
-{
-}
-
-bool MainScene::isOutScreen(int x, int y)
-{
-    return (abs(man_x_ - x) >= 2 * view_width_region_ || abs(man_y_ - y) >= view_sum_region_);
 }

@@ -1,30 +1,35 @@
-#include "UISave.h"
+﻿#include "UISave.h"
 #include "Event.h"
-#include "File.h"
 #include "MainScene.h"
 #include "Save.h"
 #include "SubScene.h"
 #include "UI.h"
-#include "convert.h"
+#include "filefunc.h"
 
 UISave::UISave()
 {
     std::vector<std::string> strings;
     auto get_save_time = [](int i) -> std::string
     {
-        auto str = File::getFileTime(Save::getFilename(i, 'r'));
+        //获取存档文件名，如果zip文件不存在，则获取r文件名
+        auto filename = Save::getInstance()->getFilename(i, '\0');
+        if (!filefunc::fileExist(filename))
+        {
+            filename = Save::getInstance()->getFilename(i, 'r');
+        }
+        auto str = filefunc::getFileTime(filename);
         if (str.empty())
         {
-            str = "--------------------";
+            str = "-------------------";
         }
         return str;
     };
     for (int i = 0; i <= 10; i++)
     {
-        auto str = fmt::format("進度{:02}  {}", i, get_save_time(i));
+        auto str = std::format("進度{:02}  {}", i, get_save_time(i));
         strings.push_back(str);
     }
-    auto str = fmt::format("自動檔  {}", get_save_time(AUTO_SAVE_ID));
+    auto str = std::format("自動檔  {}", get_save_time(AUTO_SAVE_ID));
     strings.push_back(str);
     setStrings(strings);
     childs_[0]->setVisible(false);    //屏蔽进度0
@@ -50,10 +55,9 @@ void UISave::onPressedOK()
     checkActiveToResult();
     if (result_ >= 0)
     {
-        if (mode_ == 0 && Save::checkSaveFileExist(result_))
+        if (mode_ == 0)
         {
-            load(result_);
-            setExit(true);
+            setExit(load(result_));
         }
         if (mode_ == 1)
         {
@@ -64,32 +68,44 @@ void UISave::onPressedOK()
     }
 }
 
-void UISave::load(int r)
+bool UISave::load(int r)
 {
     auto sub_scene = getPointerFromRoot<SubScene>();    //可以知道在不在子场景中
     auto save = Save::getInstance();
     auto main_scene = MainScene::getInstance();
-    save->load(r);
-    main_scene->setManPosition(save->MainMapX, save->MainMapY);
-    if (save->InSubMap >= 0)
+    if (save->load(r))
     {
-        if (sub_scene)
+        main_scene->setManPosition(save->MainMapX, save->MainMapY);
+        if (save->InSubMap >= 0)
         {
-            sub_scene->forceJumpSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
+            if (sub_scene)
+            {
+                sub_scene->forceJumpSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
+            }
+            else
+            {
+                main_scene->forceEnterSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
+            }
         }
         else
         {
-            main_scene->forceEnterSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
+            if (sub_scene)
+            {
+                sub_scene->forceExit();
+            }
         }
+        UI::getInstance()->setExit(true);
+        return true;
     }
     else
     {
-        if (sub_scene)
-        {
-            sub_scene->forceExit();
-        }
+        auto text = std::make_shared<TextBox>();
+        text->setText("存檔讀取失敗!");
+        text->setFontSize(24);
+        text->setTextColor({255, 0, 0});
+        text->runAtPosition(Engine::getInstance()->getUIWidth() / 2 - 100, 620);
     }
-    UI::getInstance()->setExit(true);
+    return false;
 }
 
 void UISave::save(int r)

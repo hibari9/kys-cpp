@@ -1,7 +1,89 @@
 ﻿#include "TextureManager.h"
-#include "File.h"
+#include "GameUtil.h"
 #include "RunNode.h"
-#include "convert.h"
+#include "UIRenderer.h"
+#include "filefunc.h"
+#include "strfunc.h"
+
+void TextureWarpper::setTex(Texture* t)
+{
+    destory();
+    tex[0] = t;
+    count = 1;
+    loaded = true;
+    Engine::getInstance()->getTextureSize(t, w, h);
+}
+
+void TextureWarpper::load()
+{
+    if (!loaded)
+    {
+        loaded = true;
+        //LOG("Load texture {}, {}\n", group_info_->path, num_);
+        if (group_info_->zip.opened())
+        {
+            tex[0] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + group_info_->ext_));
+        }
+        else
+        {
+            tex[0] = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + group_info_->ext_);
+        }
+        if (tex[0])
+        {
+            count = 1;
+        }
+        else
+        {
+            for (int i = 0; i < TextureWarpper::SUB_TEXTURE_COUNT; i++)
+            {
+                if (group_info_->zip.opened())
+                {
+                    tex[i] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + "_" + std::to_string(i) + group_info_->ext_));
+                }
+                else
+                {
+                    tex[i] = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + "_" + std::to_string(i) + group_info_->ext_);
+                }
+                if (tex[i] == nullptr)
+                {
+                    count = i;
+                    break;
+                }
+            }
+        }
+        Engine::getInstance()->getTextureSize(tex[0], w, h);
+        for (auto t : tex)
+        {
+            Engine::getInstance()->setTextureAlphaMod(t, BLENDMODE_BLEND);
+        }
+    }
+}
+
+void TextureWarpper::createWhiteTexture()
+{
+    if (tex_white == nullptr)
+    {
+        if (group_info_->zip.opened())
+        {
+            tex_white = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + group_info_->ext_), 1);
+        }
+        else
+        {
+            tex_white = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + group_info_->ext_, 1);
+        }
+    }
+}
+
+void TextureWarpper::destory()
+{
+    for (int i = 0; i < SUB_TEXTURE_COUNT; i++)
+    {
+        if (tex[i])
+        {
+            Engine::destroyTexture(tex[i]);
+        }
+    }
+}
 
 std::string TextureGroup::getFileContent(const std::string& filename)
 {
@@ -9,13 +91,13 @@ std::string TextureGroup::getFileContent(const std::string& filename)
     {
         return "";
     }
-    if (zip_.opened())
+    if (info_.zip.opened())
     {
-        return zip_.readEntryName(filename);
+        return info_.zip.readFile(filename);
     }
     else
     {
-        return convert::readStringFromFile(path_ + "/" + filename);
+        return filefunc::readFileToString(info_.path + "/" + filename);
     }
 }
 
@@ -24,155 +106,156 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
     //纹理组信息
     if (!inited_)
     {
-        path_ = path;
         inited_ = 1;
+        info_.path = path;
         if (!load_from_path)
         {
-            zip_.openFile(path_ + ".zip");
+            info_.zip.openRead(path + ".zip");
         }
-        std::vector<short> offset;
-        if (zip_.opened())
+
+        std::vector<std::string> files;
+        if (info_.zip.opened())
         {
-            std::string index_ka = zip_.readEntryName("index.ka");
-            offset.resize(index_ka.size() / 2);
-            memcpy(offset.data(), index_ka.data(), offset.size() * 2);
-        }
-        else
-        {
-            File::readFileToVector((path_ + "/index.ka").c_str(), offset);
-        }
-        resize(offset.size() / 2);
-        for (int i = 0; i < size(); i++)
-        {
-            (*this)[i] = new Texture();
-            (*this)[i]->dx = offset[i * 2];
-            (*this)[i]->dy = offset[i * 2 + 1];
-        }
-        if (zip_.opened())
-        {
-            fmt::print("Load texture group from file: {}.zip, {} textures\n", path_, size());
+            files = info_.zip.getFileNames();
         }
         else
         {
-            fmt::print("Load texture group from path: {}, {} textures\n", path_, size());
+            files = filefunc::getFilesInPath(info_.path);
+        }
+
+        int max_num = -1;
+        std::string image_ext;
+        bool mixed_image_formats = false;
+        for (auto& f : files)
+        {
+            auto ext = strfunc::toLowerCase(filefunc::getFileExt(f));
+            if (ext != "png" && ext != "webp")
+            {
+                continue;
+            }
+            if (image_ext.empty())
+            {
+                image_ext = ext;
+            }
+            else if (image_ext != ext)
+            {
+                mixed_image_formats = true;
+                break;
+            }
+            auto name = filefunc::getFileMainNameWithoutPath(f);
+            auto nums = strfunc::findNumbers<int>(name);
+            if (!nums.empty())
+            {
+                max_num = (std::max)(max_num, nums[0]);
+            }
+        }
+        if (mixed_image_formats)
+        {
+            LOG("Texture group {} mixes PNG and WebP files; use one image format per group\n", info_.path);
+            return;
+        }
+        if (!image_ext.empty())
+        {
+            info_.ext_ = "." + image_ext;
+        }
+
+        group_.resize((std::max)(0, max_num + 1));
+        for (int i = 0; i < group_.size(); i++)
+        {
+            group_[i] = new TextureWarpper();
+            group_[i]->dx = 0;
+            group_[i]->dy = 0;
+            group_[i]->group_info_ = &info_;
+            group_[i]->num_ = i;
+        }
+
+        std::string index_txt;
+        if (info_.zip.opened())
+        {
+            index_txt = info_.zip.readFile("index.txt");
+        }
+        else
+        {
+            auto filename = info_.path + "/index.txt";
+            if (filefunc::fileExist(filename))
+            {
+                index_txt = filefunc::readFileToString(filename);
+            }
+        }
+
+        if (!index_txt.empty())
+        {
+            for (auto& line : strfunc::splitString(index_txt, "\n"))
+            {
+                strfunc::replaceAllSubStringRef(line, "\r", "");
+                auto nums = strfunc::findNumbers<int>(line);
+                if (nums.size() >= 3)
+                {
+                    int idx = nums[0];
+                    if (idx >= 0 && idx < group_.size())
+                    {
+                        group_[idx]->dx = nums[1];
+                        group_[idx]->dy = nums[2];
+                    }
+                }
+            }
+        }
+        else
+        {
+            std::vector<short> offset;
+            if (info_.zip.opened())
+            {
+                std::string index_ka = info_.zip.readFile("index.ka");
+                offset.resize(index_ka.size() / 2);
+                memcpy(offset.data(), index_ka.data(), offset.size() * 2);
+            }
+            else
+            {
+                filefunc::readFileToVector((info_.path + "/index.ka").c_str(), offset);
+            }
+            int n = (std::min)(int(group_.size()), int(offset.size() / 2));
+            for (int i = 0; i < n; i++)
+            {
+                group_[i]->dx = offset[i * 2];
+                group_[i]->dy = offset[i * 2 + 1];
+            }
+        }
+
+        if (info_.zip.opened())
+        {
+            LOG("Load texture group from file: {}.zip, {} textures\n", info_.path, group_.size());
+        }
+        else
+        {
+            LOG("Load texture group from path: {}, {} textures\n", info_.path, group_.size());
         }
     }
     if (load_all)
     {
-        auto engine = Engine::getInstance();
-        for (int i = 0; i < size(); i++)
+        for (int i = 0; i < group_.size(); i++)
         {
-            loadTexture(i, (*this)[i]);
+            group_[i]->load();
         }
-    }
-}
-
-//这个内部使用
-void TextureGroup::loadTexture(int num, Texture* t)
-{
-    if (!t->loaded)
-    {
-        //fmt::print("Load texture %s, %d\n", p.c_str(), num);
-        if (zip_.opened())
-        {
-            t->tex[0] = Engine::getInstance()->loadImageFromMemory(zip_.readEntryName(std::to_string(num) + ".png"));
-        }
-        else
-        {
-            t->tex[0] = Engine::getInstance()->loadImage(path_ + "/" + std::to_string(num) + ".png");
-        }
-        if (t->tex[0])
-        {
-            t->count = 1;
-        }
-        else
-        {
-            for (int i = 0; i < Texture::SUB_TEXTURE_COUNT; i++)
-            {
-                if (zip_.opened())
-                {
-                    t->tex[i] = Engine::getInstance()->loadImageFromMemory(zip_.readEntryName(std::to_string(num) + "_" + std::to_string(i) + ".png"));
-                }
-                else
-                {
-                    t->tex[i] = Engine::getInstance()->loadImage(path_ + "/" + std::to_string(num) + "_" + std::to_string(i) + ".png");
-                }
-                if (t->tex[i] == nullptr)
-                {
-                    t->count = i;
-                    break;
-                }
-            }
-        }
-        Engine::getInstance()->queryTexture(t->tex[0], &t->w, &t->h);
-        t->loaded = true;
     }
 }
 
 TextureManager::TextureManager()
 {
+    path_ = GameUtil::PATH() + "resource/";
 }
 
 TextureManager::~TextureManager()
 {
     for (auto& m : map_)
     {
-        for (auto& t : m.second)
+        for (auto& t : m.second.group_)
         {
             delete t;
         }
     }
 }
 
-void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t alpha)
-{
-    if (tex && tex->tex[0])
-    {
-        auto engine = Engine::getInstance();
-        int i = 0;
-        if (tex->count > 1)
-        {
-            int now = RunNode::getShowTimes();
-            //此处同时模拟随机的水面和大场景的瀑布
-            if (now == tex->prev_show)
-            {
-                //若本张图在一帧中再次出现则更换一个贴图
-                i = rand() % tex->count;
-            }
-            else
-            {
-                //若本张图在一帧中首次出现则顺序贴图
-                i = now % tex->count;
-            }
-            tex->prev_show = now;
-        }
-        c.a = alpha;
-        engine->setColor(tex->tex[i], c);
-        engine->renderCopy(tex->tex[i], r.x - tex->dx, r.y - tex->dy, r.w, r.h);
-    }
-}
-
-void TextureManager::renderTexture(const std::string& path, int num, BP_Rect r, BP_Color c, uint8_t alpha)
-{
-    auto tex = loadTexture(path, num);
-    renderTexture(tex, r, c, alpha);
-}
-
-void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8_t alpha, double zoom_x, double zoom_y)
-{
-    if (tex && tex->tex[0])
-    {
-        renderTexture(tex, { x, y, int(tex->w * zoom_x), int(tex->h * zoom_y) }, c, alpha);
-    }
-}
-
-void TextureManager::renderTexture(const std::string& path, int num, int x, int y, BP_Color c, uint8_t alpha, double zoom_x, double zoom_y)
-{
-    auto tex = loadTexture(path, num);
-    renderTexture(tex, x, y, c, alpha, zoom_x, zoom_y);
-}
-
-Texture* TextureManager::loadTexture(const std::string& path, int num)
+TextureWarpper* TextureManager::getTexture(const std::string& path, int num)
 {
     auto p = path_ + path;
     auto& v = getInstance()->map_[path];
@@ -182,16 +265,11 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
         return nullptr;
     }
     //纹理信息
-    if (num < 0 || num >= v.size())
+    if (num < 0 || num >= v.group_.size())
     {
         return nullptr;
     }
-    auto& t = v[num];
-    if (!t->loaded)
-    {
-        v.loadTexture(num, t);
-        Engine::getInstance()->setTextureAlphaMod(t->getTexture(), SDL_BLENDMODE_BLEND);
-    }
+    auto& t = v.group_[num];
     return t;
 }
 
@@ -202,7 +280,7 @@ int TextureManager::getTextureGroupCount(const std::string& path)
     {
         v.init(path_ + "/" + path, load_from_path_, load_all_);
     }
-    return v.size();
+    return v.group_.size();
 }
 
 TextureGroup* TextureManager::getTextureGroup(const std::string& path)
@@ -213,4 +291,66 @@ TextureGroup* TextureManager::getTextureGroup(const std::string& path)
         v.init(path_ + "/" + path, load_from_path_, load_all_);
     }
     return &v;
+}
+
+void TextureManager::renderTexture(TextureWarpper* tex, int x, int y, const RenderInfo& info, int w, int h)
+{
+    if (tex == nullptr) { return; }
+    auto engine = Engine::getInstance();
+    if (!UIRenderer::getInstance()->isExecuting()
+        && engine->getRenderTarget() == engine->getMainTexture())
+    {
+        UIRenderer::getInstance()->drawTexture(tex, x, y, info, w, h);
+        return;
+    }
+    tex->load();
+    if (tex->tex[0] == nullptr) { return; }
+    int rw = w;
+    int rh = h;
+    if (rw < 0)
+    {
+        rw = int(tex->w * info.zoom_x);
+    }
+    if (rh < 0)
+    {
+        rh = int(tex->h * info.zoom_y);
+    }
+    size_t i = 0;
+    if (tex->count > 1)
+    {
+        int now = RunNode::getShowTimes();
+        //此处同时模拟随机的水面和大场景的瀑布
+        if (now == tex->prev_show)
+        {
+            //若本张图在一帧中再次出现则更换一个贴图
+            i = rand() % tex->count;
+        }
+        else
+        {
+            //若本张图在一帧中首次出现则顺序贴图
+            i = now % tex->count;
+        }
+        tex->prev_show = now;
+    }
+
+    Color c = info.c;
+    c.a = info.alpha;
+    Rect r = { x, y, rw, rh };
+    if (info.color_v.empty() && info.brightness_v.empty())
+    {
+        engine->setColor(tex->tex[i], c);
+        engine->renderTexture(tex->tex[i], r.x - tex->dx, r.y - tex->dy, r.w, r.h, info.angle);
+    }
+    else
+    {
+        engine->setColor(tex->tex[i], { 255, 255, 255, info.alpha });
+        Rect r1 = { r.x - tex->dx, r.y - tex->dy, rw, rh };
+        engine->renderTextureLight(tex->tex[i], nullptr, &r1, info.color_v, info.brightness_v, info.angle);
+    }
+    if (info.white)
+    {
+        tex->createWhiteTexture();
+        engine->setColor(tex->tex_white, { 255, 255, 255, info.white });
+        engine->renderTexture(tex->tex_white, r.x - tex->dx, r.y - tex->dy, r.w, r.h, info.angle);
+    }
 }

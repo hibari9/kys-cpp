@@ -25,8 +25,9 @@ void BattleCursor::setRoleAndMagic(Role* r, Magic* m /*= nullptr*/, int l /*= 0*
     head_selected_->setRole(r);
 }
 
-void BattleCursor::dealEvent(BP_Event& e)
+void BattleCursor::dealEvent(EngineEvent& e)
 {
+    auto engine = Engine::getInstance();
     if (battle_scene_ == nullptr)
     {
         return;
@@ -34,9 +35,9 @@ void BattleCursor::dealEvent(BP_Event& e)
     if (!role_->isAuto())
     {
         int x = -1, y = -1;
-        if (e.type == BP_KEYDOWN)
+        if (e.type == EVENT_KEY_DOWN)
         {
-            int tw = battle_scene_->getTowardsByKey(e.key.keysym.sym);
+            int tw = battle_scene_->getTowardsByKey(e.key.key);
             //线型的特殊处理一下
             if (magic_ && magic_->AttackAreaType == 1)
             {
@@ -47,20 +48,45 @@ void BattleCursor::dealEvent(BP_Event& e)
                 Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
             }
         }
-        if (e.type == BP_MOUSEMOTION)
+        if (e.type == EVENT_MOUSE_MOTION)
         {
-            //线型的特殊处理一下
-            if (magic_ && magic_->AttackAreaType == 1)
+            int mouse_x = 0;
+            int mouse_y = 0;
+            if (engine->windowToUISpace(e.motion.x, e.motion.y, mouse_x, mouse_y, false))
             {
-                int tw = battle_scene_->getTowardsByMouse(e.motion.x, e.motion.y);
-                Scene::getTowardsPosition(role_->X(), role_->Y(), tw, &x, &y);
+                //线型的特殊处理一下
+                if (magic_ && magic_->AttackAreaType == 1)
+                {
+                    int tw = battle_scene_->getTowardsByMouse(mouse_x, mouse_y);
+                    Scene::getTowardsPosition(role_->X(), role_->Y(), tw, &x, &y);
+                }
+                else
+                {
+                    auto p = battle_scene_->getMousePosition(mouse_x, mouse_y, role_->X(), role_->Y());
+                    x = p.x;
+                    y = p.y;
+                }
             }
-            else
-            {
-                auto p = battle_scene_->getMousePosition(e.motion.x, e.motion.y, role_->X(), role_->Y());
-                x = p.x;
-                y = p.y;
-            }
+        }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP))
+        {
+            int tw = battle_scene_->getTowardsByKey(K_UP);
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
+        }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_DOWN))
+        {
+            int tw = battle_scene_->getTowardsByKey(K_DOWN);
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
+        }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT))
+        {
+            int tw = battle_scene_->getTowardsByKey(K_LEFT);
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
+        }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT))
+        {
+            int tw = battle_scene_->getTowardsByKey(K_RIGHT);
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
         }
         setCursor(x, y);
     }
@@ -103,6 +129,10 @@ void BattleCursor::onEntrance()
     Engine::getInstance()->getWindowSize(w, h);
     head_selected_->setPosition(w - 400, h - 150);
     battle_scene_->towards_ = role_->FaceTowards;
+    if (mode_ == Action)
+    {
+        battle_scene_->calEffectLayer(role_, battle_scene_->selectX(), battle_scene_->selectY(), magic_, level_index_);
+    }
 
     if (role_->isAuto() || role_->Networked)
     {

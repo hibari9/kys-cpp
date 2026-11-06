@@ -1,5 +1,6 @@
 #include "TextBox.h"
 #include "Font.h"
+#include "TextureManager.h"
 
 void TextBox::setFontSize(int size)
 {
@@ -29,7 +30,7 @@ void TextBox::setText(std::string text)
     }
 }
 
-void TextBox::setAlphaBox(BP_Color outline_color, BP_Color background_color)
+void TextBox::setAlphaBox(Color outline_color, Color background_color)
 {
     outline_color_ = outline_color;
     background_color_ = background_color;
@@ -46,7 +47,7 @@ void TextBox::setTexture(const std::string& path, int normal_id, int pass_id /*=
     texture_press_id_ = press_id;
 }
 
-void TextBox::setTextColor(BP_Color c1, BP_Color c2, BP_Color c3)
+void TextBox::setTextColor(Color c1, Color c2, Color c3)
 {
     color_normal_ = c1;
     color_pass_ = c2;
@@ -57,10 +58,11 @@ void TextBox::draw()
 {
     if (!texture_path_.empty())
     {
-        TextureManager::getInstance()->renderTexture(texture_path_, texture_normal_id_, x_, y_, { 255, 255, 255, 255 }, 255);
+        TextureManager::getInstance()->renderTexture(texture_path_, texture_normal_id_, x_, y_, { { 255, 255, 255, 255 }, 255 });
     }
-    if (have_alpha_box_) {
-        auto rect = Font::getBoxSize(Font::getTextDrawSize(text_), font_size_, x_ + text_x_, y_ + text_y_);
+    if (have_alpha_box_)
+    {
+        auto rect = Font::getBoxRect(Font::getTextDrawSize(text_), font_size_, x_ + text_x_, y_ + text_y_);
         // 背景
         Engine::getInstance()->fillColor(background_color_, rect.x, rect.y, rect.w, rect.h);
         // 上面的

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifdef WITH_NETWORK
 #include "asio.hpp"
@@ -6,11 +6,11 @@
 
 #include "BattleMenu.h"
 #include "GameUtil.h"
-
 #include <array>
 #include <memory>
 #include <system_error>
 #include <thread>
+#include <type_traits>
 
 // 使用方法
 // 1. 选择人物
@@ -41,9 +41,9 @@ public:
     {
         worker_ = std::thread([this]
         {
-            fmt::print("spawning thread\n");
+            LOG("spawning thread\n");
             io_context_.run();
-            fmt::print("threading is done\n");
+            LOG("threading is done\n");
         });
     }
 
@@ -56,10 +56,39 @@ public:
         int itemID = -1;
         void print()
         {
-            fmt::print("action %d, movex %d, movey %d, actionx %d, actiony %d magic %d, item %d\n", Action, MoveX, MoveY, ActionX, ActionY, magicID, itemID);
+            LOG("action {}, movex {}, movey {}, actionx {}, actiony {} magic {}, item {}\n", Action, MoveX, MoveY, ActionX, ActionY, magicID, itemID);
         }
     };
     static_assert(sizeof(SerializableBattleAction) == 28, "introduced extra struct padding");
+
+    struct SerializableRole
+    {
+        static constexpr std::size_t NameCapacity = 256;
+
+        int ID;
+        int HeadID, IncLife, UnUse;
+        std::array<char, NameCapacity> Name;
+        std::array<char, NameCapacity> Nick;
+        int Sexual;
+        int Level;
+        int Exp;
+        int HP, MaxHP, Hurt, Poison, PhysicalPower;
+        int ExpForMakeItem;
+        int Equip0, Equip1;
+        int EquipMagic[4];
+        int EquipMagic2[4];
+        int EquipItem;
+        int Frame[6];
+        int MPType, MP, MaxMP;
+        int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
+        int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
+        int PracticeItem;
+        int ExpForItem;
+        int MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
+        int TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
+        int InternalID[ROLE_INTERNAL_COUNT], InternalLevel[ROLE_INTERNAL_COUNT];
+    };
+    static_assert(std::is_trivially_copyable_v<SerializableRole>);
 
     // 每次行动结束 传输Action出去 并且接收
     bool sendMyAction(const BattleNetwork::SerializableBattleAction& action);
@@ -100,8 +129,8 @@ protected:
     int int_buf_;
     int int_buf2_;
 
-    std::vector<RoleSave> friends_;
-    std::vector<RoleSave> role_result_;
+    std::vector<SerializableRole> friends_;
+    std::vector<SerializableRole> role_result_;
     std::function<void(std::error_code err)> final_callback_;
     unsigned int seed_;
 

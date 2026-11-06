@@ -1,8 +1,10 @@
-#pragma once
+﻿#pragma once
 #include "INIReader.h"
-#include "Types.h"
-#include <climits>
+#include "runtime_format.h"    //支持std::format的运行时格式化，c++26前暂时凑合用
 #include <cmath>
+#include <cstdint>
+#include <print>
+#include "filefunc.h"
 
 //此类中是一些游戏中的公式，例如使用物品的效果，伤害公式等
 //通常来说应该全部是静态函数
@@ -11,9 +13,10 @@ class GameUtil : public INIReaderNormal
 private:
     GameUtil();
     ~GameUtil();
-    std::vector<int> level_up_list_;
-    //std::vector<int> level_up_list_;
+
 public:
+    void saveConfig();
+
     static GameUtil* getInstance()
     {
         static GameUtil gu;
@@ -25,6 +28,25 @@ public:
         static std::string v = "";
         return v;
     }
+
+    static std::string& PATH()
+    {
+        static std::string s = autoGamePath();
+        return s;
+    }
+
+    static std::string autoGamePath()
+    {
+        std::string s;
+#ifndef __ANDROID__
+        s = "../game/";
+#else
+        s = "/sdcard/kys-cpp/game/";
+#endif
+        return s;
+    }
+
+    static void selectAndroidGamePath();
 
     static int sign(int v)
     {
@@ -40,7 +62,8 @@ public:
     }
 
     //返回限制值
-    static int limit(int current, int min_value, int max_value)
+    template <typename T, typename T2>
+    static T clamp(T current, T2 min_value, T2 max_value)
     {
         if (current < min_value)
         {
@@ -53,20 +76,20 @@ public:
         return current;
     }
 
-    //limit2是直接修改引用值，有两个重载
-    static void limit2(int& current, int min_value, int max_value)
+    //clamp_int是直接修改引用值，有重载
+    static void clamp_int(int& current, int min_value, int max_value)
     {
-        current = limit(current, min_value, max_value);
+        current = clamp(current, min_value, max_value);
     }
 
-    static void limit2(int16_t& current, int min_value, int max_value)
+    static void clamp_int(int16_t& current, int min_value, int max_value)
     {
-        current = limit(current, min_value, max_value);
+        current = clamp(current, min_value, max_value);
     }
 
-    static void limit2(uint16_t& current, int min_value, int max_value)
+    static void clamp_int(uint16_t& current, int min_value, int max_value)
     {
-        current = limit(current, min_value, max_value);
+        current = clamp(current, min_value, max_value);
     }
 
     //计算某个数值的位数
@@ -82,29 +105,11 @@ public:
             return n + 1;
         }
     }
-
-    static bool canUseItem(Role* r, Item* i);
-    static void useItem(Role* r, Item* i);
-    static void levelUp(Role* r);
-    static bool canLevelUp(Role* r);
-    static int getLevelUpExp(int level);
-    static bool canFinishedItem(Role* r);
-    static int getFinishedExpForItem(Role* r, Item* i);
-
-    static void equip(Role* r, Item* i);
-
-    //以下3个函数的返回值为需要显示的数值
-    static int medicine(Role* r1, Role* r2);
-    static int detoxification(Role* r1, Role* r2);
-    static int usePoison(Role* r1, Role* r2);
-
-    void setRoleMaxValue(Role* role);
-    void setSpecialItems();
-
-    template <typename... Args>
-    static void LOG(Args&&... args) 
-    {
-        fmt::print(stdout, args...);
-    }
-
 };
+
+template <typename... Args>
+void LOG(std::format_string<Args...> fmt, Args... args)
+{
+    auto str = std::format(fmt, std::forward<Args>(args)...);
+    fputs(str.c_str(), stdout);
+}

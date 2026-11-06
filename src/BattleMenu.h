@@ -22,7 +22,7 @@ public:
         return run();    //据说这里有潜在问题
     }
 
-    void dealEvent(BP_Event& e) override;
+    void dealEvent(EngineEvent& e) override;
 
     BattleScene* battle_scene_ = nullptr;
 
@@ -55,6 +55,7 @@ public:
 
     void getFarthestToAll(Role* role, std::vector<Role*> roles, int& x, int& y);
     void getNearestPosition(int x0, int y0, int& x, int& y);
+    bool getApproachPosition(Role* role, Role* target, int& x, int& y);
     Role* getNearestRole(Role* role, std::vector<Role*> roles);
     void calAIActionNearest(Role* r2, AIAction& aa, Role* r_temp = nullptr);
     int calNeedActionDistance(AIAction& aa);
@@ -63,10 +64,8 @@ public:
 class BattleMagicMenu : public MenuText
 {
 public:
-    BattleMagicMenu() {}
+    BattleMagicMenu() { setPosition(160, 200); }
     virtual ~BattleMagicMenu() {}
-
-    //virtual void onEntrance() override;
 
     Role* role_ = nullptr;
     Magic* magic_ = nullptr;
@@ -84,6 +83,32 @@ public:
     virtual void onPressedCancel() override
     {
         magic_ = nullptr;
+        exitWithResult(-1);
+    }
+};
+
+class BattleEquipItemMenu : public MenuText
+{
+public:
+    BattleEquipItemMenu() { setPosition(20, 20); }
+    virtual ~BattleEquipItemMenu() {}
+
+    Role* role_ = nullptr;
+    Item* item_ = nullptr;
+    void setRole(Role* r);
+    int runAsRole(Role* r)
+    {
+        setRole(r);
+        return run();
+    }
+
+    Item* getItem() { return item_; }
+    void onEntrance() override;
+
+    virtual void onPressedOK() override;
+    virtual void onPressedCancel() override
+    {
+        item_ = nullptr;
         exitWithResult(-1);
     }
 };
